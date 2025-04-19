@@ -1,0 +1,124 @@
+const React = require('react');
+const { useInput } = require('ink');
+const { getDescendantPaths } = require('../utils/tree');
+
+/**
+ * Hook to handle keyboard navigation and actions.
+ * @param {object} params - Parameters for navigation.
+ */
+function useKeyboardNavigation(params) {
+  const {
+    tree,
+    flattened,
+    offset,
+    setOffset,
+    cursor,
+    setCursor,
+    contentHeight,
+    setTree,
+    focus,
+    setFocus,
+    saveSelection,
+    exit,
+    toggleSelection,
+    previewFile,
+    previewContent,
+    previewOffset,
+    setPreviewOffset
+  } = params;
+
+  useInput((input, key) => {
+    if (!tree) return;
+    // Switch focus
+    if (key.tab) {
+      setFocus((f) => (f === 'tree' ? 'preview' : 'tree'));
+      return;
+    }
+    // Save or quit
+    if (input === 's') {
+      saveSelection(exit);
+      return;
+    }
+    if (input === 'q') {
+      exit();
+      return;
+    }
+    if (focus === 'tree') {
+      // Tree navigation
+      if (key.upArrow) {
+        if (cursor > 0) {
+          const nc = cursor - 1;
+          setCursor(nc);
+          if (nc < offset) setOffset(nc);
+        }
+      } else if (key.downArrow) {
+        if (cursor < flattened.length - 1) {
+          const nc = cursor + 1;
+          setCursor(nc);
+          if (nc >= offset + contentHeight) setOffset(offset + 1);
+        }
+      } else if (key.pageUp) {
+        const nc = Math.max(0, cursor - contentHeight);
+        setCursor(nc);
+        setOffset(Math.max(0, offset - contentHeight));
+      } else if (key.pageDown) {
+        const nc = Math.min(flattened.length - 1, cursor + contentHeight);
+        setCursor(nc);
+        const mo = Math.max(0, flattened.length - contentHeight);
+        setOffset(Math.min(mo, offset + contentHeight));
+      } else if (key.leftArrow) {
+        const { node, depth } = flattened[cursor] || {};
+        if (node && node.type === 'tree' && node.isExpanded) {
+          node.isExpanded = false;
+          setTree((t) => ({ ...t }));
+        } else if (depth > 1) {
+          for (let i = cursor - 1; i >= 0; i--) {
+            if (flattened[i].depth === depth - 1) {
+              setCursor(i);
+              if (i < offset) setOffset(i);
+              break;
+            }
+          }
+        }
+      } else if (key.rightArrow) {
+        const { node } = flattened[cursor] || {};
+        if (node && node.type === 'tree' && !node.isExpanded) {
+          node.isExpanded = true;
+          setTree((t) => ({ ...t }));
+        } else if (node && node.type === 'tree' && node.isExpanded && node.children.length) {
+          const nc = cursor + 1;
+          setCursor(nc);
+          if (nc >= offset + contentHeight) setOffset(offset + 1);
+        }
+      } else if (input === ' ') {
+        const { node } = flattened[cursor] || {};
+        if (node) toggleSelection(node);
+      } else if (key.return) {
+        const { node } = flattened[cursor] || {};
+        if (node) {
+          if (node.type === 'tree') {
+            node.isExpanded = !node.isExpanded;
+            setTree((t) => ({ ...t }));
+          } else {
+            previewFile(node);
+          }
+        }
+      }
+    } else {
+      // Preview scrolling
+      const lines = previewContent.split(/\r?\n/);
+      const maxOff = Math.max(0, lines.length - contentHeight);
+      if (key.upArrow) {
+        setPreviewOffset((o) => Math.max(0, o - 1));
+      } else if (key.downArrow) {
+        setPreviewOffset((o) => Math.min(maxOff, o + 1));
+      } else if (key.pageUp) {
+        setPreviewOffset((o) => Math.max(0, o - contentHeight));
+      } else if (key.pageDown) {
+        setPreviewOffset((o) => Math.min(maxOff, o + contentHeight));
+      }
+    }
+  });
+}
+
+module.exports = useKeyboardNavigation;

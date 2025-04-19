@@ -1,217 +1,49 @@
 const React = require('react');
-const { Box, Text, useInput, useApp, useStdout } = require('ink');
-const { fetchTree, fetchContent } = require('./utils/fetchers');
-const { buildTree, sortTree, flattenTree, getDescendantPaths } = require('./utils/tree');
-const { parseGitHubUrl } = require('./utils/urlUtils');
+const { Box, Text, useApp, useStdout } = require('ink');
+const useRepoTree = require('./hooks/useRepoTree');
+const useSelectionPersistence = require('./hooks/useSelectionPersistence');
+const usePreview = require('./hooks/usePreview');
+const useKeyboardNavigation = require('./hooks/useKeyboardNavigation');
 const TreePanel = require('./components/TreePanel');
 const PreviewPanel = require('./components/PreviewPanel');
+const { getDescendantPaths } = require('./utils/tree');
 
 const App = ({ url }) => {
   const { exit } = useApp();
-  const [entries, setEntries] = React.useState(null);
-  const [tree, setTree] = React.useState(null);
+  const { tree, setTree, flattened, error, parsed } = useRepoTree(url);
+  const { selected, prevSelected, toggleSelection, saveSelection } = useSelectionPersistence(url);
+  const { previewContent, previewTitle, previewOffset, setPreviewOffset, previewFile } = usePreview(url);
   const [offset, setOffset] = React.useState(0);
-  const [error, setError] = React.useState(null);
-  const [selected, setSelected] = React.useState(new Set());
-  const [prevSelected, setPrevSelected] = React.useState(new Set());
   const [cursor, setCursor] = React.useState(0);
-  const [previewContent, setPreviewContent] = React.useState('');
-  const [previewTitle, setPreviewTitle] = React.useState('Preview');
-  // focus: 'tree' or 'preview'
   const [focus, setFocus] = React.useState('tree');
-  // scroll offset for preview
-  const [previewOffset, setPreviewOffset] = React.useState(0);
-
-  // parse GitHub URL for owner, repo, branch, initial path
-  const { owner, repo, branch, initialPathParts } = parseGitHubUrl(url);
-  // track mounted for async state updates
-  const mountedRef = React.useRef(true);
-  React.useEffect(() => () => { mountedRef.current = false; }, []);
-
-  const selectionFilePath = React.useMemo(() => {
-    const homedir = require('os').homedir();
-    const path = require('path');
-    const baseDir = path.join(homedir, '.git-collector');
-    if (!require('fs').existsSync(baseDir)) {
-      require('fs').mkdirSync(baseDir);
-    }
-    const filename = url.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json';
-    return path.join(baseDir, filename);
-  }, [url]);
-
-  React.useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const flat = await fetchTree(url, branch);
-        if (!mounted) return;
-        const sorted = flat.map((e) => ({ path: e.path, type: e.type }))
-          .sort((a, b) => a.path.localeCompare(b.path));
-        setEntries(sorted);
-        // build and sort tree, then determine view root
-        const root = buildTree(sorted);
-        sortTree(root);
-        let viewRoot = root;
-        if (initialPathParts.length > 0) {
-          let curr = root;
-          for (const part of initialPathParts) {
-            const next = curr.children.find((c) => c.name === part);
-            if (!next) break;
-            next.isExpanded = true;
-            curr = next;
-          }
-          viewRoot = curr;
-        }
-        setTree(viewRoot);
-      } catch (err) {
-        if (mounted) setError(err.message);
-      }
-      try {
-        if (mounted && require('fs').existsSync(selectionFilePath)) {
-          const data = JSON.parse(require('fs').readFileSync(selectionFilePath, 'utf8'));
-          if (Array.isArray(data.selected)) {
-            setPrevSelected(new Set(data.selected));
-            setSelected(new Set(data.selected));
-          }
-        }
-      } catch {}
-    })();
-    return () => { mounted = false; };
-  }, []);
 
   const { stdout } = useStdout();
   const totalRows = stdout.rows || 0;
   const totalCols = stdout.columns || 0;
   const controlsHeight = 1;
-  // leave room for the controls row and its separator
   const listHeight = Math.max(0, totalRows - controlsHeight - 1);
-  // number of rows available for list content (subtract header+border)
   const contentHeight = Math.max(0, listHeight - 2);
-  const flattened = tree ? flattenTree(tree) : [];
   const visible = flattened.slice(offset, offset + contentHeight);
-  const depthOffset = initialPathParts.length > 0 ? 1 : 0;
+  const depthOffset = parsed.initialPathParts.length > 0 ? 1 : 0;
 
-  // Keyboard input handling with focus
-  useInput((input, key) => {
-    if (!tree) return;
-    // Switch focus between panels
-    if (key.tab) {
-      setFocus((f) => (f === 'tree' ? 'preview' : 'tree'));
-      return;
-    }
-    // Save or quit
-    if (input === 's') {
-      const toWrite = { selected: Array.from(selected) };
-      require('fs').writeFileSync(selectionFilePath, JSON.stringify(toWrite, null, 2));
-      exit();
-      return;
-    }
-    if (input === 'q') {
-      exit();
-      return;
-    }
-    if (focus === 'tree') {
-      // Tree navigation and actions
-      if (key.upArrow) {
-        if (cursor > 0) {
-          const nc = cursor - 1;
-          setCursor(nc);
-          if (nc < offset) setOffset(nc);
-        }
-      } else if (key.downArrow) {
-        if (cursor < flattened.length - 1) {
-          const nc = cursor + 1;
-          setCursor(nc);
-          // scroll when cursor moves past visible content
-          if (nc >= offset + contentHeight) setOffset(offset + 1);
-        }
-      } else if (key.pageUp) {
-        const nc = Math.max(0, cursor - contentHeight);
-        setCursor(nc);
-        setOffset(Math.max(0, offset - contentHeight));
-      } else if (key.pageDown) {
-        const nc = Math.min(flattened.length - 1, cursor + contentHeight);
-        setCursor(nc);
-        const mo = Math.max(0, flattened.length - contentHeight);
-        setOffset(Math.min(mo, offset + contentHeight));
-      }
-      else if (key.leftArrow) {
-        // collapse directory or move to parent
-        const { node, depth } = flattened[cursor] || {};
-        if (node && node.type === 'tree' && node.isExpanded) {
-          node.isExpanded = false;
-          setTree((t) => ({ ...t }));
-        } else if (depth > 1) {
-          for (let i = cursor - 1; i >= 0; i--) {
-            if (flattened[i].depth === depth - 1) {
-              setCursor(i);
-              if (i < offset) setOffset(i);
-              break;
-            }
-          }
-        }
-      } else if (key.rightArrow) {
-        // expand directory or move into
-        const { node } = flattened[cursor] || {};
-        if (node && node.type === 'tree' && !node.isExpanded) {
-          node.isExpanded = true;
-          setTree((t) => ({ ...t }));
-        } else if (node && node.type === 'tree' && node.isExpanded && node.children.length) {
-          const nc = cursor + 1;
-          setCursor(nc);
-          if (nc >= offset + contentHeight) setOffset(offset + 1);
-        }
-      } else if (input === ' ') {
-        const { node } = flattened[cursor] || {};
-        if (node) {
-          if (node.type === 'tree') {
-            // toggle selection of entire directory
-            const desc = getDescendantPaths(node);
-            const allSel = desc.every((p) => selected.has(p));
-            const newSel = new Set(selected);
-            if (allSel) desc.forEach((p) => newSel.delete(p));
-            else desc.forEach((p) => newSel.add(p));
-            setSelected(newSel);
-          } else {
-            // toggle single file selection
-            const newSel = new Set(selected);
-            if (newSel.has(node.path)) newSel.delete(node.path);
-            else newSel.add(node.path);
-            setSelected(newSel);
-          }
-        }
-      } else if (key.return) {
-        const { node } = flattened[cursor] || {};
-        if (node) {
-          if (node.type === 'tree') {
-            // expand/collapse directory
-            node.isExpanded = !node.isExpanded;
-            setTree((t) => ({ ...t }));
-          } else if (mountedRef.current) {
-            // preview file
-            setPreviewTitle(node.name || node.path);
-            setPreviewContent('Loading...');
-            fetchContent(url, node.path)
-              .then((c) => { if (mountedRef.current) setPreviewContent(c); })
-              .catch((e) => { if (mountedRef.current) setPreviewContent('Error: ' + e.message); });
-          }
-        }
-      }
-    } else {
-      // Preview panel scrolling
-      const lines = previewContent.split(/\r?\n/);
-      // only contentHeight rows visible (header+border take 2 rows)
-      const maxOff = Math.max(0, lines.length - contentHeight);
-      if (key.upArrow) {
-        setPreviewOffset((o) => Math.max(0, o - 1));
-      } else if (key.downArrow) {
-        setPreviewOffset((o) => Math.min(maxOff, o + 1));
-      } else if (key.pageUp) {
-        setPreviewOffset((o) => Math.max(0, o - contentHeight));
-      } else if (key.pageDown) {
-        setPreviewOffset((o) => Math.min(maxOff, o + contentHeight));
-      }
-    }
+  useKeyboardNavigation({
+    tree,
+    flattened,
+    offset,
+    setOffset,
+    cursor,
+    setCursor,
+    contentHeight,
+    setTree,
+    focus,
+    setFocus,
+    saveSelection: () => saveSelection(exit),
+    exit,
+    toggleSelection,
+    previewFile,
+    previewContent,
+    previewOffset,
+    setPreviewOffset
   });
 
   if (error) {
@@ -221,7 +53,6 @@ const App = ({ url }) => {
     return React.createElement(Text, null, 'Loading repository tree...');
   }
 
-  // compute required left panel width
   const leftLines = flattened.map(({ node, depth }) => {
     let mark;
     if (node.type === 'tree') {
@@ -236,17 +67,24 @@ const App = ({ url }) => {
     return `${mark} ${indent}${icon}${node.name}`;
   });
   const leftWidth = Math.min(totalCols - 1, leftLines.reduce((m, l) => Math.max(m, l.length), 0));
-  // full file content in previewContent; no slicing
 
   return React.createElement(
     Box,
     { flexDirection: 'column', height: totalRows },
-    // Main panels row
     React.createElement(
       Box,
       { flexDirection: 'row', height: listHeight },
-      React.createElement(TreePanel, { visible, offset, listHeight, depthOffset, selected, prevSelected, cursor, leftWidth, focus }),
-      // Vertical separator: one space on each side of the bar
+      React.createElement(TreePanel, {
+        visible,
+        offset,
+        listHeight,
+        depthOffset,
+        selected,
+        prevSelected,
+        cursor,
+        leftWidth,
+        focus
+      }),
       React.createElement(
         Box,
         { flexDirection: 'column', width: 3, height: listHeight, flexShrink: 0 },
@@ -254,15 +92,20 @@ const App = ({ url }) => {
           React.createElement(Text, { key: `sep-${i}`, color: 'gray' }, ' │ ')
         )
       ),
-      React.createElement(PreviewPanel, { previewContent, previewTitle, listHeight, previewOffset, focus, width: totalCols - leftWidth - 3 })
+      React.createElement(PreviewPanel, {
+        previewContent,
+        previewTitle,
+        listHeight,
+        previewOffset,
+        focus,
+        width: totalCols - leftWidth - 3
+      })
     ),
-    // Horizontal border above controls
     React.createElement(
       Box,
       { height: 1, width: totalCols, flexShrink: 0 },
       React.createElement(Text, { color: 'gray' }, '─'.repeat(totalCols))
     ),
-    // Controls bar: full width
     React.createElement(
       Box,
       { height: controlsHeight, width: totalCols, flexShrink: 0, backgroundColor: 'gray' },

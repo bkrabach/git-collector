@@ -6,14 +6,14 @@
 
  - [x] Define and stabilize module interfaces
    - [x] Catalog existing surface area and write specs for interfaces. (See INTERFACES.md)
- - [ ] Extract stateful concerns into minimal hooks/services
+- [x] Extract stateful concerns into minimal hooks/services
    - useRepoTree, useSelectionPersistence, usePreview, useKeyboardNavigation.
  - [ ] Keep each module laser-focused
- - [ ] Add minimal testing scaffold
+- [x] Add minimal testing scaffold
    - Unit tests for utils/tree, utils/urlUtils.
    - Simple integration test for App or hooks.
- - [ ] Iteratively refactor by vertical slices
-   - Implement slice: URL → fetchTree → buildTree → flattenTree → display.
+- [x] Iteratively refactor by vertical slices
+   - [x] Implement slice: URL → fetchTree → buildTree → flattenTree → display.
  - [ ] Preserve minimal dependencies and direct integration
  - [ ] Stabilize contracts for future AI-generated regeneration
  - [ ] (Optional) CI pipeline
@@ -21,3 +21,6 @@
  ## Progress
 
  - [x] Defined and stabilized module interfaces (specs in INTERFACES.md)
+ - [x] Extracted stateful concerns into minimal hooks/services
+ - [x] Added minimal testing scaffold (utils and hooks)
+ - [x] Implemented vertical slice: URL → fetchTree → buildTree → flattenTree → display
