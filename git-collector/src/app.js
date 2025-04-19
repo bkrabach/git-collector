@@ -246,12 +246,12 @@ const App = ({ url }) => {
       Box,
       { flexDirection: 'row', height: listHeight },
       React.createElement(TreePanel, { visible, offset, listHeight, depthOffset, selected, prevSelected, cursor, leftWidth, focus }),
-      // Vertical separator
+      // Vertical separator: one space on each side of the bar
       React.createElement(
         Box,
         { flexDirection: 'column', width: 3, height: listHeight, flexShrink: 0 },
         ...Array(listHeight).fill(null).map((_, i) =>
-          React.createElement(Text, { key: `sep-${i}`, color: 'gray' }, '│')
+          React.createElement(Text, { key: `sep-${i}`, color: 'gray' }, ' │ ')
         )
       ),
       React.createElement(PreviewPanel, { previewContent, previewTitle, listHeight, previewOffset, focus, width: totalCols - leftWidth - 3 })

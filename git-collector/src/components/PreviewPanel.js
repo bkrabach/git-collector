@@ -38,7 +38,13 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
     // pad to fill content area
     const padCount = Math.max(0, contentHeight - lines.length);
     for (let i = 0; i < padCount; i++) {
-      lines.push(React.createElement(Text, { key: `pad-${i}` }, ''));
+      lines.push(
+        React.createElement(
+          Text,
+          { key: `pad-${i}`, wrap: 'truncate' },
+          ''
+        )
+      );
     }
     // border under header
     const border = React.createElement(
@@ -48,7 +54,7 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
     );
     return React.createElement(
       Box,
-      { flexDirection: 'column', width, paddingLeft: 1, height: listHeight },
+      { flexDirection: 'column', width, height: listHeight },
       header,
       border,
       ...lines
@@ -86,7 +92,13 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
   });
   const pad2 = Math.max(0, contentHeight2 - lines2.length);
   for (let i = 0; i < pad2; i++) {
-    lines2.push(React.createElement(Text, { key: `pad2-${i}` }, ''));
+    lines2.push(
+      React.createElement(
+        Text,
+        { key: `pad2-${i}`, wrap: 'truncate' },
+        ''
+      )
+    );
   }
   // border under header
   const border2 = React.createElement(
@@ -96,7 +108,7 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
   );
   return React.createElement(
     Box,
-    { flexDirection: 'column', width, paddingLeft: 1, height: listHeight },
+    { flexDirection: 'column', width, height: listHeight },
     header,
     border2,
     ...lines2
