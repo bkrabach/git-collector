@@ -36,6 +36,16 @@ if (!ghToken) {
 
 // Fetch the Git tree recursively, supporting branch override
 async function fetchTree(repoUrl, refOverride) {
+  // Fixture support: load from test fixtures when URL starts with fixture://
+  if (repoUrl.startsWith('fixture://')) {
+    const repoName = repoUrl.slice('fixture://'.length);
+    const fixturesDir = path.join(__dirname, '../../test/fixtures', repoName);
+    const treeFile = path.join(fixturesDir, 'tree.json');
+    if (fs.existsSync(treeFile)) {
+      return JSON.parse(fs.readFileSync(treeFile, 'utf8'));
+    }
+    throw new Error(`Fixture tree not found: ${treeFile}`);
+  }
   let urlObj;
   try { urlObj = new URL(repoUrl); } catch {
     throw new Error('Invalid URL');
@@ -68,6 +78,16 @@ async function fetchTree(repoUrl, refOverride) {
 
 // Fetch file content via GitHub contents API
 async function fetchContent(repoUrl, filePath) {
+  // Fixture support: load from test fixtures when URL starts with fixture://
+  if (repoUrl.startsWith('fixture://')) {
+    const repoName = repoUrl.slice('fixture://'.length);
+    const fixturesDir = path.join(__dirname, '../../test/fixtures', repoName, 'files');
+    const file = path.join(fixturesDir, filePath);
+    if (fs.existsSync(file)) {
+      return fs.readFileSync(file, 'utf8');
+    }
+    throw new Error(`Fixture file not found: ${file}`);
+  }
   let urlObj;
   try { urlObj = new URL(repoUrl); } catch {
     throw new Error('Invalid URL');

@@ -7,7 +7,6 @@ const { parseGitHubUrl } = require('../utils/urlUtils');
  * Hook to fetch and build a GitHub repo tree.
  * @param {string} url - GitHub repository URL.
  * @returns {{
- *   entries: Array<{path: string, type: string}> | null,
  *   tree: object | null,
  *   setTree: Function,
  *   flattened: Array<{node: object, depth: number}>,
@@ -16,7 +15,6 @@ const { parseGitHubUrl } = require('../utils/urlUtils');
  * }}
  */
 function useRepoTree(url) {
-  const [entries, setEntries] = React.useState(null);
   const [tree, setTree] = React.useState(null);
   const [error, setError] = React.useState(null);
   const parsed = React.useMemo(() => parseGitHubUrl(url), [url]);
@@ -30,8 +28,6 @@ function useRepoTree(url) {
         if (!mounted) return;
         const sorted = flat.map(e => ({ path: e.path, type: e.type }))
           .sort((a, b) => a.path.localeCompare(b.path));
-        if (!mounted) return;
-        setEntries(sorted);
         const root = buildTree(sorted);
         sortTree(root);
         let viewRoot = root;
@@ -55,7 +51,7 @@ function useRepoTree(url) {
 
   const flattened = React.useMemo(() => (tree ? flattenTree(tree) : []), [tree]);
 
-  return { entries, tree, setTree, flattened, error, parsed };
+  return { tree, setTree, flattened, error, parsed };
 }
 
 module.exports = useRepoTree;

@@ -6,13 +6,16 @@
   },
   "scripts": {
     "start": "node bin/cli.js",
-    "test": "node test/testUrlUtils.js && node test/testTree.js && node test/testHooks.js"
+    "test": "jest"
   },
   "dependencies": {
     "ink": "^3.0.8",
     "react": "^17.0.2",
     "node-fetch": "^2.6.7",
-    "ink-markdown": "^1.0.0",
-    "cli-highlight": "^2.1.10"
+    "cli-highlight": "^2.1.10",
+    "ink-testing-library": "^2.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.6.1"
   }
 }

@@ -2,6 +2,8 @@ const React = require('react');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const { getDescendantPaths } = require('../utils/tree');
+const { toggleSelectionSet } = require('../utils/selection');
 
 /**
  * Hook to manage selection state and persistence.
@@ -47,19 +49,7 @@ function useSelectionPersistence(url) {
    * Toggle a node's selection (file or directory)
    */
   function toggleSelection(node) {
-    const newSel = new Set(selected);
-    if (node.type === 'tree') {
-      const { getDescendantPaths } = require('../utils/tree');
-      const desc = getDescendantPaths(node);
-      const allSel = desc.every(p => newSel.has(p));
-      if (allSel) desc.forEach(p => newSel.delete(p));
-      else desc.forEach(p => newSel.add(p));
-    } else {
-      const p = node.path;
-      if (newSel.has(p)) newSel.delete(p);
-      else newSel.add(p);
-    }
-    setSelected(newSel);
+    setSelected((prev) => toggleSelectionSet(prev, node, getDescendantPaths));
   }
 
   /**

@@ -28,19 +28,19 @@ function useKeyboardNavigation(params) {
   } = params;
 
   useInput((input, key) => {
-    if (!tree) return;
-    // Switch focus
-    if (key.tab) {
-      setFocus((f) => (f === 'tree' ? 'preview' : 'tree'));
-      return;
-    }
-    // Save or quit
+    // Always allow save or quit
     if (input === 's') {
       saveSelection(exit);
       return;
     }
     if (input === 'q') {
       exit();
+      return;
+    }
+    if (!tree) return;
+    // Switch focus
+    if (key.tab) {
+      setFocus((f) => (f === 'tree' ? 'preview' : 'tree'));
       return;
     }
     if (focus === 'tree') {

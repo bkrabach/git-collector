@@ -1,0 +1,5 @@
+[
+  { "path": "a.txt", "type": "blob" },
+  { "path": "dir1/file1.txt", "type": "blob" },
+  { "path": "dir1/subdir/file2.txt", "type": "blob" }
+]

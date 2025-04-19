@@ -1,26 +1,48 @@
- # Refactoring Plan for git-collector
+# Refactoring Plan for git-collector
 
- This document tracks our refactoring progress to align with the Implementation and Modular Design philosophies.
+This document outlines our next steps—deeply rooted in our minimalism and modular‑brick philosophies—to tidy the code, strengthen our vertical slices, and bolster our testing pyramid.
 
- ## Tasks
+## 1. Tidy & Simplify
 
- - [x] Define and stabilize module interfaces
-   - [x] Catalog existing surface area and write specs for interfaces. (See INTERFACES.md)
-- [x] Extract stateful concerns into minimal hooks/services
-   - useRepoTree, useSelectionPersistence, usePreview, useKeyboardNavigation.
- - [ ] Keep each module laser-focused
-- [x] Add minimal testing scaffold
-   - Unit tests for utils/tree, utils/urlUtils.
-   - Simple integration test for App or hooks.
-- [x] Iteratively refactor by vertical slices
-   - [x] Implement slice: URL → fetchTree → buildTree → flattenTree → display.
- - [ ] Preserve minimal dependencies and direct integration
- - [ ] Stabilize contracts for future AI-generated regeneration
- - [ ] (Optional) CI pipeline
+- Audit hooks/components for unused state & imports:
+  - Remove leftover `entries` state & related code from App and useRepoTree
+  - Prune `parseGitHubUrl`, raw fetchers, and tree-utils imports from App in favor of hooks
+  - Verify each hook only exports exactly what’s needed
+- Prune unused dependencies:
+  - Run `npm prune` and remove any no-longer-needed packages
+- Lint & format:
+  - Ensure no ESLint/Prettier errors on touched files
+  - (Optional) Add a `.pre-commit-config.yaml` to enforce staged linting
 
- ## Progress
+## 2. Strengthen Vertical Slices
 
- - [x] Defined and stabilized module interfaces (specs in INTERFACES.md)
- - [x] Extracted stateful concerns into minimal hooks/services
- - [x] Added minimal testing scaffold (utils and hooks)
- - [x] Implemented vertical slice: URL → fetchTree → buildTree → flattenTree → display
+- Create test fixtures under `test/fixtures/simple-repo/`:
+  - `tree.json`: sample array of `{ path, type }` entries
+  - `files/`: corresponding text files
+- Inject fixtures into fetchers during tests (e.g. detect `fixture://` URL)
+- Write integration test `test/integration.test.js`:
+  - Render `<App url="fixture://simple-repo" />` with Ink’s test renderer
+  - Assert TreePanel snapshot matches fixture
+  - Simulate expand, select, preview; verify output updates
+
+## 3. Bolster Testing Pyramid
+
+- Unit tests for edge-case logic:
+  - `useSelectionPersistence.toggleSelection` on file vs directory nodes
+  - `useKeyboardNavigation` reactions to up/down/left/right/page keys
+- End-to-end smoke test `test/smoke.test.js`:
+  - Spawn `bin/cli.js fixture://simple-repo` in a pseudo-TTY (e.g. with `node-pty`)
+  - Capture initial screen; assert “Files” header and fixture filenames appear
+
+## Tracking / Progress
+
+- [x] Defined & stabilized module interfaces (INTERFACES.md)
+- [x] Extracted stateful concerns into minimal hooks/services
+- [x] Added minimal testing scaffold (utils & hooks)
+- [x] Implemented vertical slice: URL → fetchTree → buildTree → flattenTree → display
+- [ ] Tidy & Simplify
+- [ ] Strengthen vertical slices with integration fixtures & tests
+- [ ] Bolster testing pyramid with unit & smoke tests
+- [ ] Preserve minimal dependencies & direct integration
+- [ ] Stabilize contracts for future AI‑driven regeneration
+- [ ] (Optional) CI pipeline
