@@ -5,7 +5,7 @@ const path = require('path');
 // PreviewPanel: renders file full content or markdown
 // PreviewPanel: renders file full content or highlighted code
 // PreviewPanel: renders file full content or highlighted code, clipped to listHeight rows
-function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset, focus }) {
+function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset, focus, width }) {
   const ext = path.extname(previewTitle).slice(1).toLowerCase();
   // get terminal width for border
   const { stdout } = useStdout();
@@ -44,11 +44,11 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
     const border = React.createElement(
       Text,
       { color: 'gray', key: 'border', wrap: 'truncate' },
-      '─'.repeat(totalCols)
+      '─'.repeat(width)
     );
     return React.createElement(
       Box,
-      { flexDirection: 'column', flexGrow: 1, paddingLeft: 1, height: listHeight },
+      { flexDirection: 'column', width, paddingLeft: 1, height: listHeight },
       header,
       border,
       ...lines
@@ -92,11 +92,11 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
   const border2 = React.createElement(
     Text,
     { color: 'gray', key: 'border2', wrap: 'truncate' },
-    '─'.repeat(totalCols)
+    '─'.repeat(width)
   );
   return React.createElement(
     Box,
-    { flexDirection: 'column', flexGrow: 1, paddingLeft: 1, height: listHeight },
+    { flexDirection: 'column', width, paddingLeft: 1, height: listHeight },
     header,
     border2,
     ...lines2

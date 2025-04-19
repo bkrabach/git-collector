@@ -254,7 +254,7 @@ const App = ({ url }) => {
           React.createElement(Text, { key: `sep-${i}`, color: 'gray' }, '│')
         )
       ),
-      React.createElement(PreviewPanel, { previewContent, previewTitle, listHeight, previewOffset, focus })
+      React.createElement(PreviewPanel, { previewContent, previewTitle, listHeight, previewOffset, focus, width: totalCols - leftWidth - 3 })
     ),
     // Horizontal border above controls
     React.createElement(
