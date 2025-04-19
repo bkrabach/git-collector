@@ -83,9 +83,12 @@ const App = ({ url }) => {
   const totalRows = stdout.rows || 0;
   const totalCols = stdout.columns || 0;
   const controlsHeight = 1;
-  const listHeight = Math.max(0, totalRows - controlsHeight);
+  // leave room for the controls row and its separator
+  const listHeight = Math.max(0, totalRows - controlsHeight - 1);
+  // number of rows available for list content (subtract header+border)
+  const contentHeight = Math.max(0, listHeight - 2);
   const flattened = tree ? flattenTree(tree) : [];
-  const visible = flattened.slice(offset, offset + listHeight);
+  const visible = flattened.slice(offset, offset + contentHeight);
   const depthOffset = initialPathParts.length > 0 ? 1 : 0;
 
   // Keyboard input handling with focus
@@ -119,17 +122,18 @@ const App = ({ url }) => {
         if (cursor < flattened.length - 1) {
           const nc = cursor + 1;
           setCursor(nc);
-          if (nc >= offset + listHeight) setOffset(offset + 1);
+          // scroll when cursor moves past visible content
+          if (nc >= offset + contentHeight) setOffset(offset + 1);
         }
       } else if (key.pageUp) {
-        const nc = Math.max(0, cursor - listHeight);
+        const nc = Math.max(0, cursor - contentHeight);
         setCursor(nc);
-        setOffset(Math.max(0, offset - listHeight));
+        setOffset(Math.max(0, offset - contentHeight));
       } else if (key.pageDown) {
-        const nc = Math.min(flattened.length - 1, cursor + listHeight);
+        const nc = Math.min(flattened.length - 1, cursor + contentHeight);
         setCursor(nc);
-        const mo = Math.max(0, flattened.length - listHeight);
-        setOffset(Math.min(mo, offset + listHeight));
+        const mo = Math.max(0, flattened.length - contentHeight);
+        setOffset(Math.min(mo, offset + contentHeight));
       }
       else if (key.leftArrow) {
         // collapse directory or move to parent
@@ -155,7 +159,7 @@ const App = ({ url }) => {
         } else if (node && node.type === 'tree' && node.isExpanded && node.children.length) {
           const nc = cursor + 1;
           setCursor(nc);
-          if (nc >= offset + listHeight) setOffset(offset + 1);
+          if (nc >= offset + contentHeight) setOffset(offset + 1);
         }
       } else if (input === ' ') {
         const { node } = flattened[cursor] || {};
@@ -196,11 +200,17 @@ const App = ({ url }) => {
     } else {
       // Preview panel scrolling
       const lines = previewContent.split(/\r?\n/);
-      const maxOff = Math.max(0, lines.length - (listHeight - 1));
-      if (key.upArrow) setPreviewOffset((o) => Math.max(0, o - 1));
-      else if (key.downArrow) setPreviewOffset((o) => Math.min(maxOff, o + 1));
-      else if (key.pageUp) setPreviewOffset((o) => Math.max(0, o - (listHeight - 1)));
-      else if (key.pageDown) setPreviewOffset((o) => Math.min(maxOff, o + (listHeight - 1)));
+      // only contentHeight rows visible (header+border take 2 rows)
+      const maxOff = Math.max(0, lines.length - contentHeight);
+      if (key.upArrow) {
+        setPreviewOffset((o) => Math.max(0, o - 1));
+      } else if (key.downArrow) {
+        setPreviewOffset((o) => Math.min(maxOff, o + 1));
+      } else if (key.pageUp) {
+        setPreviewOffset((o) => Math.max(0, o - contentHeight));
+      } else if (key.pageDown) {
+        setPreviewOffset((o) => Math.min(maxOff, o + contentHeight));
+      }
     }
   });
 
@@ -235,7 +245,7 @@ const App = ({ url }) => {
     React.createElement(
       Box,
       { flexDirection: 'row', height: listHeight },
-      React.createElement(TreePanel, { visible, offset, listHeight, depthOffset, selected, prevSelected, cursor, leftWidth }),
+      React.createElement(TreePanel, { visible, offset, listHeight, depthOffset, selected, prevSelected, cursor, leftWidth, focus }),
       // Vertical separator
       React.createElement(
         Box,
@@ -244,19 +254,19 @@ const App = ({ url }) => {
           React.createElement(Text, { key: `sep-${i}`, color: 'gray' }, '│')
         )
       ),
-      React.createElement(PreviewPanel, { previewContent, previewTitle, listHeight, previewOffset })
+      React.createElement(PreviewPanel, { previewContent, previewTitle, listHeight, previewOffset, focus })
     ),
-    // Horizontal separator above controls
+    // Horizontal border above controls
     React.createElement(
       Box,
-      { height: 1, width: totalCols, backgroundColor: 'black' },
+      { height: 1, width: totalCols, flexShrink: 0 },
       React.createElement(Text, { color: 'gray' }, '─'.repeat(totalCols))
     ),
-    // Controls bar: full width, solid background to hide preview below
+    // Controls bar: full width
     React.createElement(
       Box,
-      { height: controlsHeight, width: totalCols, backgroundColor: 'black' },
-      React.createElement(Text, { color: 'gray' }, 'Controls: ↑/↓ navigate, PgUp/PgDn page, ←/→ expand/collapse, space select, s save&quit, q quit')
+      { height: controlsHeight, width: totalCols, flexShrink: 0, backgroundColor: 'gray' },
+      React.createElement(Text, { color: 'whiteBright' }, 'Controls: ↑/↓ navigate, PgUp/PgDn page, ←/→ expand/collapse, space select, s save&quit, q quit')
     )
   );
 };

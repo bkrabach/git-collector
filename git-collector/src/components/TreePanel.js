@@ -3,8 +3,11 @@ const { Box, Text } = require('ink');
 const { getDescendantPaths } = require('../utils/tree');
 
 // TreePanel: renders the tree list on the left
-function TreePanel({ visible, offset, listHeight, depthOffset, selected, prevSelected, cursor, leftWidth }) {
-  const lines = visible.map(({ node, depth }, idx) => {
+// TreePanel: renders the tree list on the left, with focus header
+function TreePanel({ visible, offset, listHeight, depthOffset, selected, prevSelected, cursor, leftWidth, focus }) {
+  // reserve two rows: header and border
+  const contentHeight = Math.max(0, listHeight - 2);
+  const lines = visible.slice(0, contentHeight).map(({ node, depth }, idx) => {
     const globalIdx = offset + idx;
     const isCursor = globalIdx === cursor;
     const isSelected = selected.has(node.path);
@@ -29,15 +32,29 @@ function TreePanel({ visible, offset, listHeight, depthOffset, selected, prevSel
     else if (isSelected && wasSelected) props.bold = true;
     return React.createElement(Text, { ...props, key: node.path }, text);
   });
-  // pad if list short
-  const blankCount = Math.max(0, listHeight - lines.length);
+  // pad content lines if short
+  const blankCount = Math.max(0, contentHeight - lines.length);
   for (let i = 0; i < blankCount; i++) {
     lines.push(React.createElement(Text, { key: `blank-${i}` }, ''));
   }
+  // header bar
+  const header = React.createElement(
+    Box,
+    { height: 1, width: leftWidth },
+    React.createElement(Text, { color: focus === 'tree' ? 'magenta' : 'white', bold: focus === 'tree' }, ' Files ')
+  );
+  // border under header
+  const border = React.createElement(
+    Box,
+    { height: 1, width: leftWidth, flexShrink: 0 },
+    React.createElement(Text, { color: 'gray' }, '─'.repeat(leftWidth))
+  );
   return React.createElement(
     Box,
     { flexDirection: 'column', width: leftWidth, flexShrink: 0, height: listHeight },
-    lines
+    header,
+    border,
+    ...lines
   );
 }
 
