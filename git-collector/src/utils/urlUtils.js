@@ -2,6 +2,10 @@ const { URL } = require('url');
 
 // Parse GitHub URL into owner, repo, branch, and optional initial path
 function parseGitHubUrl(repoUrl) {
+  // Allow fixture:// URLs for testing without GitHub parsing
+  if (repoUrl.startsWith('fixture://')) {
+    return { owner: '', repo: '', branch: '', initialPathParts: [] };
+  }
   let urlObj;
   try { urlObj = new URL(repoUrl); } catch {
     throw new Error('Invalid URL');

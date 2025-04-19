@@ -9,7 +9,12 @@ const PreviewPanel = require('./components/PreviewPanel');
 const { getDescendantPaths } = require('./utils/tree');
 
 const App = ({ url }) => {
-  const { exit } = useApp();
+  // Wrap Ink exit to clear screen before unmounting
+  const { exit: inkExit } = useApp();
+  // Wrap Ink's exit function; actual screen clearing is handled by the CLI wrapper
+  const exit = () => {
+    inkExit();
+  };
   const { tree, setTree, flattened, error, parsed } = useRepoTree(url);
   const { selected, prevSelected, toggleSelection, saveSelection } = useSelectionPersistence(url);
   const { previewContent, previewTitle, previewOffset, setPreviewOffset, previewFile } = usePreview(url);
@@ -17,9 +22,18 @@ const App = ({ url }) => {
   const [cursor, setCursor] = React.useState(0);
   const [focus, setFocus] = React.useState('tree');
 
+  // Responsive layout: re-render on terminal resize
   const { stdout } = useStdout();
-  const totalRows = stdout.rows || 0;
-  const totalCols = stdout.columns || 0;
+  const [totalCols, setCols] = React.useState(stdout.columns || 0);
+  const [totalRows, setRows] = React.useState(stdout.rows || 0);
+  React.useEffect(() => {
+    const onResize = () => {
+      setCols(stdout.columns || 0);
+      setRows(stdout.rows || 0);
+    };
+    stdout.on('resize', onResize);
+    return () => stdout.off('resize', onResize);
+  }, [stdout]);
   const controlsHeight = 1;
   const listHeight = Math.max(0, totalRows - controlsHeight - 1);
   const contentHeight = Math.max(0, listHeight - 2);
@@ -66,7 +80,9 @@ const App = ({ url }) => {
     const icon = node.type === 'tree' ? (node.isExpanded ? '▼ ' : '▶ ') : '  ';
     return `${mark} ${indent}${icon}${node.name}`;
   });
-  const leftWidth = Math.min(totalCols - 1, leftLines.reduce((m, l) => Math.max(m, l.length), 0));
+  // Compute left panel width but clamp to non-negative value
+  const rawLeft = Math.min(totalCols - 1, leftLines.reduce((m, l) => Math.max(m, l.length), 0));
+  const leftWidth = Math.max(0, rawLeft);
 
   return React.createElement(
     Box,
@@ -98,7 +114,8 @@ const App = ({ url }) => {
         listHeight,
         previewOffset,
         focus,
-        width: totalCols - leftWidth - 3
+        // Ensure non-negative width to avoid repeat(-n) errors
+        width: Math.max(0, totalCols - leftWidth - 3)
       })
     ),
     React.createElement(
