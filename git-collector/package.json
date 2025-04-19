@@ -1,0 +1,17 @@
+{
+  "name": "git-collector",
+  "version": "0.1.0",
+  "bin": {
+    "git-collector": "bin/cli.js"
+  },
+  "scripts": {
+    "start": "node bin/cli.js"
+  },
+  "dependencies": {
+    "ink": "^3.0.8",
+    "react": "^17.0.2",
+    "node-fetch": "^2.6.7",
+    "ink-markdown": "^1.0.0",
+    "cli-highlight": "^2.1.10"
+  }
+}
