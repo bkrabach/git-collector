@@ -44,6 +44,10 @@ function flattenTree(node, depth = 0) {
 
 // Get all descendant paths of a tree node (excluding itself)
 function getDescendantPaths(node) {
+  // No descendants if no children array
+  if (!node.children || !Array.isArray(node.children)) {
+    return [];
+  }
   let paths = [];
   for (const child of node.children) {
     paths.push(child.path);

@@ -92,7 +92,8 @@ function useKeyboardNavigation(params) {
         }
       } else if (input === ' ') {
         const { node } = flattened[cursor] || {};
-        if (node) toggleSelection(node);
+        // Prevent toggling missing (phantom) files
+        if (node && !node.missing) toggleSelection(node);
       } else if (key.return) {
         const { node } = flattened[cursor] || {};
         if (node) {

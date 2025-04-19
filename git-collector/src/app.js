@@ -1,14 +1,20 @@
 const React = require('react');
 const { Box, Text, useApp, useStdout } = require('ink');
 const useRepoTree = require('./hooks/useRepoTree');
-const useSelectionPersistence = require('./hooks/useSelectionPersistence');
+// flattenTree unused directly; rely on useRepoTree flattened output
+const { sortTree } = require('./utils/tree');
+// const useSelectionPersistence = require('./hooks/useSelectionPersistence'); // no longer used
 const usePreview = require('./hooks/usePreview');
 const useKeyboardNavigation = require('./hooks/useKeyboardNavigation');
 const TreePanel = require('./components/TreePanel');
 const PreviewPanel = require('./components/PreviewPanel');
 const { getDescendantPaths } = require('./utils/tree');
+const { toggleSelectionSet } = require('./utils/selection');
+const { fetchContent } = require('./utils/fetchers');
+const fs = require('fs');
+const path = require('path');
 
-const App = ({ url }) => {
+const App = ({ url, initialSelections = [], destPath }) => {
   // Wrap Ink exit to clear screen before unmounting
   const { exit: inkExit } = useApp();
   // Wrap Ink's exit function; actual screen clearing is handled by the CLI wrapper
@@ -16,7 +22,102 @@ const App = ({ url }) => {
     inkExit();
   };
   const { tree, setTree, flattened, error, parsed } = useRepoTree(url);
-  const { selected, prevSelected, toggleSelection, saveSelection } = useSelectionPersistence(url);
+  // Initialize selection state
+  const [selected, setSelected] = React.useState(() => new Set(initialSelections));
+  const prevSelected = React.useMemo(() => new Set(initialSelections), [initialSelections]);
+  // On initial load, expand all directories that contain selected files
+  const [hasExpanded, setHasExpanded] = React.useState(false);
+  React.useEffect(() => {
+    if (!hasExpanded && tree) {
+      setHasExpanded(true);
+      // 1) Expand all directories that contained previously selected files
+      const dirsToExpand = new Set();
+      initialSelections.forEach((fp) => {
+        const parts = fp.split('/');
+        let prefix = '';
+        for (let i = 0; i < parts.length - 1; i++) {
+          prefix = prefix ? `${prefix}/${parts[i]}` : parts[i];
+          dirsToExpand.add(prefix);
+        }
+      });
+      function expand(node) {
+        if (dirsToExpand.has(node.path)) node.isExpanded = true;
+        if (node.children) node.children.forEach(expand);
+      }
+      expand(tree);
+      // 2) Inject phantom ancestors and missing files into tree
+      const nodeMap = new Map();
+      function buildMap(node) {
+        nodeMap.set(node.path, node);
+        if (node.type === 'tree' && Array.isArray(node.children)) {
+          node.children.forEach(buildMap);
+        }
+      }
+      buildMap(tree);
+      initialSelections.forEach((fp) => {
+        const parts = fp.split('/');
+        let prefix = '';
+        // Ensure ancestor directories exist as phantom nodes
+        for (let i = 0; i < parts.length - 1; i++) {
+          prefix = prefix ? `${prefix}/${parts[i]}` : parts[i];
+          if (!nodeMap.has(prefix)) {
+            const parentPath = prefix.includes('/') ? prefix.slice(0, prefix.lastIndexOf('/')) : '';
+            const parent = parentPath ? nodeMap.get(parentPath) : tree;
+            const newDir = { name: parts[i], path: prefix, type: 'tree', children: [], isExpanded: true, missing: true };
+            if (parent && Array.isArray(parent.children)) {
+              parent.children.push(newDir);
+            }
+            nodeMap.set(prefix, newDir);
+          }
+        }
+        // Ensure file node exists as phantom if missing
+        if (!nodeMap.has(fp)) {
+          const fileName = parts[parts.length - 1];
+          const parentPath = parts.length > 1 ? parts.slice(0, parts.length - 1).join('/') : '';
+          const parent = parentPath ? nodeMap.get(parentPath) : tree;
+          const newFile = { name: fileName, path: fp, type: 'blob', missing: true };
+          if (parent && Array.isArray(parent.children)) {
+            parent.children.push(newFile);
+          }
+          nodeMap.set(fp, newFile);
+        }
+      });
+      // Sort tree to position phantoms correctly
+      sortTree(tree);
+      // Trigger re-render
+      setTree({ ...tree });
+    }
+  }, [tree, hasExpanded, initialSelections, setTree]);
+  const toggleSelection = (node) => setSelected((prev) => toggleSelectionSet(prev, node, getDescendantPaths));
+  const saveSelection = (exitFn) => {
+    // Only include existing files; omit missing phantom entries
+    const realPaths = new Set(
+      flattened.filter(({ node }) => node.type === 'blob' && !node.missing).map(({ node }) => node.path)
+    );
+    const paths = Array.from(selected).filter((p) => realPaths.has(p)).sort();
+    (async () => {
+      const date = new Date().toLocaleString();
+      const md = [];
+      md.push('# Git Collector Data');
+      md.push(`URL: ${url}`);
+      md.push(`Date: ${date}`);
+      md.push(`Files: ${paths.length}`);
+      md.push('');
+      for (const filePath of paths) {
+        // File section separator
+        md.push(`=== File: ${filePath} ===`);
+        try {
+          const content = await fetchContent(url, filePath);
+          md.push(content);
+        } catch (e) {
+          md.push(`// Error loading file: ${e.message}`);
+        }
+        md.push('');
+      }
+      fs.writeFileSync(destPath, md.join('\n'), 'utf8');
+      exitFn();
+    })();
+  };
   const { previewContent, previewTitle, previewOffset, setPreviewOffset, previewFile } = usePreview(url);
   const [offset, setOffset] = React.useState(0);
   const [cursor, setCursor] = React.useState(0);
@@ -37,6 +138,7 @@ const App = ({ url }) => {
   const controlsHeight = 1;
   const listHeight = Math.max(0, totalRows - controlsHeight - 1);
   const contentHeight = Math.max(0, listHeight - 2);
+  // Visible slice from flattened tree
   const visible = flattened.slice(offset, offset + contentHeight);
   const depthOffset = parsed.initialPathParts.length > 0 ? 1 : 0;
 
@@ -96,7 +198,6 @@ const App = ({ url }) => {
         listHeight,
         depthOffset,
         selected,
-        prevSelected,
         cursor,
         leftWidth,
         focus

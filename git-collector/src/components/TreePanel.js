@@ -4,32 +4,43 @@ const { getDescendantPaths } = require('../utils/tree');
 
 // TreePanel: renders the tree list on the left
 // TreePanel: renders the tree list on the left, with focus header
-function TreePanel({ visible, offset, listHeight, depthOffset, selected, prevSelected, cursor, leftWidth, focus }) {
+function TreePanel({ visible, offset, listHeight, depthOffset, selected, cursor, leftWidth, focus }) {
   // reserve two rows: header and border
   const contentHeight = Math.max(0, listHeight - 2);
   const lines = visible.slice(0, contentHeight).map(({ node, depth }, idx) => {
     const globalIdx = offset + idx;
     const isCursor = globalIdx === cursor;
-    const isSelected = selected.has(node.path);
-    const wasSelected = prevSelected.has(node.path);
-    // determine selection mark
-    let mark;
-    if (node.type === 'tree') {
-      const desc = getDescendantPaths(node);
-      const selCount = desc.filter((p) => selected.has(p)).length;
-      mark = selCount === 0 ? '[ ]' : selCount === desc.length ? '[x]' : '[-]';
-    } else {
-      mark = isSelected ? '[x]' : '[ ]';
-    }
     const indent = ' '.repeat(Math.max(0, depth - depthOffset) * 2);
     const icon = node.type === 'tree' ? (node.isExpanded ? '▼ ' : '▶ ') : '  ';
+    // compute selection state
+    let mark;
+    let isSelected = false;
+    let isPartial = false;
+    const desc = node.type === 'tree' ? getDescendantPaths(node) : [];
+    const selCount = desc.length > 0 ? desc.filter((p) => selected.has(p)).length : 0;
+    if (node.type === 'tree') {
+      if (selCount === 0) mark = '[ ]';
+      else if (selCount === desc.length) { mark = '[x]'; isSelected = true; }
+      else { mark = '[-]'; isPartial = true; }
+    } else {
+      isSelected = selected.has(node.path);
+      mark = isSelected ? '[x]' : '[ ]';
+    }
+    // detect missing phantom entries
+    const isMissing = node.missing === true;
     const text = `${mark} ${indent}${icon}${node.name}`;
-    // reset to default color to avoid bleed from preview panel
-    const props = { color: 'white' };
+    const props = {};
+    if (isMissing) {
+      props.color = 'red';
+      props.strikethrough = true;
+    } else if (isPartial) {
+      props.color = 'cyan';
+    } else if (isSelected) {
+      props.color = 'green';
+    } else {
+      props.color = 'white';
+    }
     if (isCursor) props.backgroundColor = 'blue';
-    if (isSelected && !wasSelected) props.color = 'green';
-    else if (!isSelected && wasSelected) { props.color = 'red'; props.strikethrough = true; }
-    else if (isSelected && wasSelected) props.bold = true;
     return React.createElement(Text, { ...props, key: node.path }, text);
   });
   // pad content lines if short
