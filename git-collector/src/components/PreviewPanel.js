@@ -1,6 +1,10 @@
 const React = require('react');
 const { Box, Text, useStdout } = require('ink');
 const path = require('path');
+// js-tiktoken for accurate token counting
+const { Tiktoken } = require('js-tiktoken/lite');
+const o200k_base = require('js-tiktoken/ranks/o200k_base');
+const encoder = new Tiktoken(o200k_base);
 
 // PreviewPanel: renders file full content or markdown
 // PreviewPanel: renders file full content or highlighted code
@@ -12,13 +16,35 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
   const totalCols = stdout.columns || 0;
   // panel header (truncate long titles)
   // panel header: fixed height, don't grow vertically
+  // Compute file size
+  const sizeBytes = Buffer.byteLength(previewContent || '', 'utf8');
+  const sizeStr = sizeBytes >= 1024
+    ? `${(sizeBytes / 1024).toFixed(1)} KB`
+    : `${sizeBytes} B`;
+  // Accurate token count via js-tiktoken
+  let tokenCount = 0;
+  if (previewContent) {
+    try {
+      tokenCount = encoder.encode(previewContent).length;
+    } catch {}
+  }
+  // Format token count with 'k' suffix above 1000
+  const tokLabel = tokenCount >= 1000
+    ? `${(tokenCount / 1000).toFixed(1)}k tok`
+    : `${tokenCount} tok`;
+  const tokenStr = `${sizeStr} | ${tokLabel}`;
   const header = React.createElement(
     Box,
-    { height: 1, flexShrink: 0 },
+    { height: 1, flexShrink: 0, width, flexDirection: 'row', justifyContent: 'space-between' },
     React.createElement(
       Text,
       { color: focus === 'preview' ? 'magenta' : 'white', bold: focus === 'preview', wrap: 'truncate' },
       ` ${previewTitle} `
+    ),
+    React.createElement(
+      Text,
+      { color: focus === 'preview' ? 'magenta' : 'white', bold: focus === 'preview', wrap: 'truncate' },
+      ` ${tokenStr} `
     )
   );
   // Markdown

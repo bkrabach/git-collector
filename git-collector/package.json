@@ -9,11 +9,12 @@
     "test": "jest"
   },
   "dependencies": {
-    "ink": "^3.0.8",
-    "react": "^17.0.2",
-    "node-fetch": "^2.6.7",
     "cli-highlight": "^2.1.10",
-    "ink-testing-library": "^2.0.1"
+    "ink": "^3.0.8",
+    "ink-testing-library": "^2.0.1",
+    "js-tiktoken": "^1.0.19",
+    "node-fetch": "^2.6.7",
+    "react": "^17.0.2"
   },
   "devDependencies": {
     "jest": "^29.6.1"

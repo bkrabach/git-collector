@@ -4,7 +4,7 @@ const { getDescendantPaths } = require('../utils/tree');
 
 // TreePanel: renders the tree list on the left
 // TreePanel: renders the tree list on the left, with focus header
-function TreePanel({ visible, offset, listHeight, depthOffset, selected, cursor, leftWidth, focus }) {
+function TreePanel({ visible, offset, listHeight, depthOffset, selected, cursor, leftWidth, focus, selectedCount, totalTokens }) {
   // reserve two rows: header and border
   const contentHeight = Math.max(0, listHeight - 2);
   const lines = visible.slice(0, contentHeight).map(({ node, depth }, idx) => {
@@ -49,10 +49,14 @@ function TreePanel({ visible, offset, listHeight, depthOffset, selected, cursor,
     lines.push(React.createElement(Text, { key: `blank-${i}` }, ''));
   }
   // header bar
+  // Header with selected files and total tokens
+  const selStr = `${selectedCount} sel`;
+  const tokStr = totalTokens >= 1000 ? `${(totalTokens/1000).toFixed(1)}k tok` : `${totalTokens} tok`;
   const header = React.createElement(
     Box,
-    { height: 1, width: leftWidth },
-    React.createElement(Text, { color: focus === 'tree' ? 'magenta' : 'white', bold: focus === 'tree' }, ' Files ')
+    { height: 1, width: leftWidth, justifyContent: 'space-between' },
+    React.createElement(Text, { color: focus === 'tree' ? 'magenta' : 'white', bold: focus === 'tree' }, ' Files '),
+    React.createElement(Text, { color: focus === 'tree' ? 'magenta' : 'white', bold: focus === 'tree' }, ` ${selStr} | ${tokStr} `)
   );
   // border under header
   const border = React.createElement(

@@ -11,6 +11,7 @@ const PreviewPanel = require('./components/PreviewPanel');
 // Status indicator for loading/saving
 const StatusIndicator = require('./components/StatusIndicator');
 const { toggleSelectionSet } = require('./utils/selection');
+const { fetchContent } = require('./utils/fetchers');
 
 const App = ({ url, initialSelections = [], destPath }) => {
   // Wrap Ink exit to clear screen before unmounting
@@ -69,6 +70,31 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const [offset, setOffset] = React.useState(0);
   const [cursor, setCursor] = React.useState(0);
   const [focus, setFocus] = React.useState('tree');
+  // Track token counts for selected files
+  const [tokenCounts, setTokenCounts] = React.useState({});
+  // Initialize js-tiktoken encoder
+  const { Tiktoken } = require('js-tiktoken/lite');
+  const o200k_base = require('js-tiktoken/ranks/o200k_base');
+  const encoder = React.useMemo(() => new Tiktoken(o200k_base), []);
+  // Fetch token counts on selection changes
+  React.useEffect(() => {
+    selected.forEach((path) => {
+      if (!(path in tokenCounts)) {
+        // fetch content and count tokens
+        fetchContent(url, path)
+          .then((content) => {
+            const count = encoder.encode(content).length;
+            setTokenCounts((prev) => ({ ...prev, [path]: count }));
+          })
+          .catch(() => {});
+      }
+    });
+  }, [selected, tokenCounts, url, encoder]);
+  const selectedCount = selected.size;
+  const totalTokens = Array.from(selected).reduce(
+    (sum, p) => sum + (tokenCounts[p] || 0),
+    0
+  );
 
   // Responsive layout: re-render on terminal resize
   const { stdout } = useStdout();
@@ -200,7 +226,9 @@ const App = ({ url, initialSelections = [], destPath }) => {
         selected,
         cursor,
         leftWidth,
-        focus
+        focus,
+        selectedCount,
+        totalTokens
       }),
       React.createElement(
         Box,
