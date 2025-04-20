@@ -58,7 +58,7 @@ function TreePanel({ visible, offset, listHeight, depthOffset, selected, cursor,
   const border = React.createElement(
     Box,
     { height: 1, width: leftWidth, flexShrink: 0 },
-    React.createElement(Text, { color: 'gray' }, '─'.repeat(leftWidth))
+    React.createElement(Text, { color: focus === 'tree' ? 'magenta' : 'gray' }, '─'.repeat(leftWidth))
   );
   return React.createElement(
     Box,

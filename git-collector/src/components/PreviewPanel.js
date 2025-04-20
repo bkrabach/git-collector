@@ -55,7 +55,7 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
     // border under header
     const border = React.createElement(
       Text,
-      { color: 'gray', key: 'border', wrap: 'truncate' },
+      { color: focus === 'preview' ? 'magenta' : 'gray', key: 'border', wrap: 'truncate' },
       '─'.repeat(width)
     );
     return React.createElement(
@@ -114,7 +114,7 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
   // border under header
   const border2 = React.createElement(
     Text,
-    { color: 'gray', key: 'border2', wrap: 'truncate' },
+    { color: focus === 'preview' ? 'magenta' : 'gray', key: 'border2', wrap: 'truncate' },
     '─'.repeat(width)
   );
   return React.createElement(

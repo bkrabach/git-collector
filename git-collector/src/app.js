@@ -89,7 +89,7 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const visible = flattened.slice(offset, offset + contentHeight);
   const depthOffset = parsed.initialPathParts.length > 0 ? 1 : 0;
   // Dynamically build controls string based on available width
-  const controlsStr = React.useMemo(() => {
+  const controlsItems = React.useMemo(() => {
     const items = [
       '<tab> switch focus',
       '↑/↓ navigate',
@@ -103,31 +103,23 @@ const App = ({ url, initialSelections = [], destPath }) => {
     ];
     const helpItem = '<h> help';
     const header = 'Controls:';
-    // remaining width after header + space
     let avail = totalCols - header.length - 1;
-    // Collect items that fit, excluding help
     const shown = [];
     for (const item of items) {
-      const segLen = item.length + 3; // item + ' | '
+      const segLen = item.length + 3;
       if (avail >= segLen + helpItem.length + 3) {
         shown.push(item);
         avail -= segLen;
-      } else {
-        break;
-      }
+      } else break;
     }
-    // Always include help at end if fits; otherwise drop shown items until it fits
     let helpAvail = avail;
     const helpLen = helpItem.length + (shown.length > 0 ? 3 : 1);
     while (shown.length > 0 && helpAvail < helpLen) {
       const last = shown.pop();
       helpAvail += last.length + 3;
     }
-    // If enough space, append help
-    if (helpAvail >= helpLen) {
-      shown.push(helpItem);
-    }
-    return `${header}${shown.length > 0 ? ' ' + shown.join(' | ') : ''}`;
+    if (helpAvail >= helpLen) shown.push(helpItem);
+    return shown;
   }, [totalCols]);
 
   // Compute left panel width to determine preview panel width
@@ -229,12 +221,20 @@ const App = ({ url, initialSelections = [], destPath }) => {
     isSaving && React.createElement(StatusIndicator, { message: savingMsg }),
     React.createElement(
       Box,
-      { height: controlsHeight, width: totalCols, flexShrink: 0, backgroundColor: 'gray' },
-      React.createElement(
-        Text,
-        { color: 'white' },
-        controlsStr
-      )
+      { height: controlsHeight, width: totalCols, flexShrink: 0, backgroundColor: 'gray', flexDirection: 'row', alignItems: 'center' },
+      controlsItems.map((item, idx) => {
+        // Split first token (key) from rest
+        const parts = item.match(/^(\S+)/);
+        const keyPart = parts ? parts[1] : '';
+        const rest = parts ? item.slice(keyPart.length) : item;
+        return React.createElement(
+          Text,
+          { key: idx, wrap: 'truncate' },
+          keyPart ? React.createElement(Text, { color: 'magenta' }, keyPart) : null,
+          React.createElement(Text, { color: 'white' }, rest),
+          idx < controlsItems.length - 1 ? React.createElement(Text, { color: 'white' }, ' | ') : null
+        );
+      })
     )
   );
 };

@@ -13,21 +13,27 @@ function handleTreeNav(params, input, key) {
     toggleSelection,
     previewFile
   } = params;
-  // Fast vertical scroll (~10% of content) via raw Shift (1;2) or Ctrl (1;5) Up/Down sequences
-  if (typeof setOffset === 'function') {
+  // Fast vertical move via raw Shift (1;2) or Ctrl (1;5) Up/Down sequences: 10% of contentHeight
+  if (typeof setOffset === 'function' && typeof setCursor === 'function') {
     const seq = input || '';
     const fastV = Math.max(1, Math.floor(contentHeight * 0.10));
-    const maxOffset = Math.max(0, flattened.length - contentHeight);
+    // fast up
     if (seq.includes('[1;2A') || seq.includes('[1;5A')) {
-      // scroll up fast
-      setOffset((o) => Math.max(0, o - fastV));
-      setCursor((c) => Math.max(0, c - fastV));
+      const newCursor = Math.max(0, cursor - fastV);
+      setCursor(() => newCursor);
+      if (newCursor < offset) {
+        setOffset(() => newCursor);
+      }
       return;
     }
+    // fast down
     if (seq.includes('[1;2B') || seq.includes('[1;5B')) {
-      // scroll down fast
-      setOffset((o) => Math.min(maxOffset, o + fastV));
-      setCursor((c) => Math.min(flattened.length - 1, c + fastV));
+      const maxCursor = flattened.length - 1;
+      const newCursor = Math.min(maxCursor, cursor + fastV);
+      setCursor(() => newCursor);
+      if (newCursor >= offset + contentHeight) {
+        setOffset(() => newCursor - contentHeight + 1);
+      }
       return;
     }
   }
@@ -52,7 +58,37 @@ function handleTreeNav(params, input, key) {
     setCursor(nc);
     const mo = Math.max(0, flattened.length - contentHeight);
     setOffset(Math.min(mo, offset + contentHeight));
-  } else if (key.leftArrow) {
+  }
+  // Fast vertical move via raw Shift/Ctrl Up/Down sequences: 10% of contentHeight
+  if (typeof setCursor === 'function' && typeof setOffset === 'function') {
+    const seq = input || '';
+    const fastV = Math.max(1, Math.floor(contentHeight * 0.10));
+    // Move up fast
+    if (seq.includes('[1;2A') || seq.includes('[1;5A')) {
+      const newCursor = Math.max(0, cursor - fastV);
+      setCursor(newCursor);
+      if (newCursor < offset) {
+        setOffset(newCursor);
+      } else if (newCursor >= offset + contentHeight) {
+        setOffset(newCursor - contentHeight + 1);
+      }
+      return;
+    }
+    // Move down fast
+    if (seq.includes('[1;2B') || seq.includes('[1;5B')) {
+      const maxCursor = flattened.length - 1;
+      const newCursor = Math.min(maxCursor, cursor + fastV);
+      setCursor(newCursor);
+      if (newCursor < offset) {
+        setOffset(newCursor);
+      } else if (newCursor >= offset + contentHeight) {
+        setOffset(newCursor - contentHeight + 1);
+      }
+      return;
+    }
+  }
+  // Normal left arrow handling
+  if (key.leftArrow) {
     const { node, depth } = flattened[cursor] || {};
     if (node && node.type === 'tree' && node.isExpanded) {
       node.isExpanded = false;

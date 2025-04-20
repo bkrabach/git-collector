@@ -137,22 +137,24 @@ describe('handleTreeNav fast vertical scroll', () => {
       previewFile: () => {}
     };
   });
-  test('shift raw up sequence scrolls up by fastV', () => {
-    // fastV = floor(10*0.10)=1
+  test('shift raw up sequence moves cursor up by fastV without offset scroll', () => {
+    // fastV = floor(10*0.10)=1, initial offset=5
     handleTreeNav(params, '\u001b[1;2A', {});
-    expect(params.setOffset).toHaveBeenCalled();
-    expect(params.offset).toBe(4);
     expect(params.setCursor).toHaveBeenCalled();
     expect(params.cursor).toBe(5);
+    // offset remains
+    expect(params.setOffset).not.toHaveBeenCalled();
+    expect(params.offset).toBe(5);
   });
-  test('ctrl raw down sequence scrolls down by fastV', () => {
+  test('ctrl raw down sequence moves cursor down by fastV without offset scroll', () => {
     params.offset = 0;
     params.cursor = 0;
     handleTreeNav(params, '\u001b[1;5B', {});
-    expect(params.setOffset).toHaveBeenCalled();
-    expect(params.offset).toBe(1);
     expect(params.setCursor).toHaveBeenCalled();
     expect(params.cursor).toBe(1);
+    // offset remains
+    expect(params.setOffset).not.toHaveBeenCalled();
+    expect(params.offset).toBe(0);
   });
 });
 
