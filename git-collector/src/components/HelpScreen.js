@@ -25,6 +25,7 @@ function HelpScreen({ onClose, focus }) {
     ["↑ / ↓", "move selection"],
     ["<shift> ↑ / <shift> ↓", "move selection (fast)"],
     ["PgUp / PgDn", "page selection"],
+    ["Ctrl+U / Ctrl+D", "page selection (90%)"],
     ["← / →", "collapse/expand"],
     ["<space>", "toggle select"],
     ["<enter>", "preview file"],
@@ -32,18 +33,21 @@ function HelpScreen({ onClose, focus }) {
   ];
   const previewNav = [
     ["↑ / ↓", "scroll vertically"],
+    ["k / j", "scroll vertically"],
     ["<shift> ↑ / <shift> ↓", "scroll vertically (fast)"],
     ["PgUp / PgDn", "page scroll"],
+    ["Ctrl+U / Ctrl+D", "page scroll (90%)"],
     ["← / →", "scroll horizontally"],
     ["<shift> ← / <shift> →", "scroll horizontally (fast)"],
-    ["Home / End", "jump start/end"],
+    ["Home / End", "page horizontally (90%)"],
     ["<tab>", "switch focus"],
   ];
   const actions = [
-    ["w", "write selections"],
-    ["x", "write & quit"],
+    ["w", "toggle wrap"],
+    ["s", "save selections"],
+    ["x", "save & quit"],
     ["q", "quit"],
-    ["h", "help"],
+    ["?", "help"],
   ];
   const sepLine = React.createElement(
     Text,

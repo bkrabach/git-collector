@@ -97,7 +97,7 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, focus, width, 
     if (focus !== 'preview') return;
     // Toggle wrapping
     // Toggle wrapping mode
-    if (input === 'r') {
+    if (input === 'w') {
       toggleWrap((w) => !w);
       setVOff(0);
       setHOff(0);
@@ -114,17 +114,16 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, focus, width, 
       return;
     }
     // Single-line vertical scroll
-    if (key.upArrow) { setVOff((o) => Math.max(0, o - 1)); return; }
-    if (key.downArrow) { setVOff((o) => Math.min(maxVOff, o + 1)); return; }
-    // Page-wise vertical scroll (~90% of view for context)
-    if (key.pageUp) {
-      const step = Math.max(1, Math.floor(contentHeight * 0.9));
-      setVOff((o) => Math.max(0, o - step));
+    if (key.upArrow || input === 'k') { setVOff((o) => Math.max(0, o - 1)); return; }
+    if (key.downArrow || input === 'j') { setVOff((o) => Math.min(maxVOff, o + 1)); return; }
+    // Page-wise vertical scroll (~90% of view for context), supports PgUp/PgDn or Ctrl+U/D
+    const pageStep = Math.max(1, Math.floor(contentHeight * 0.9));
+    if (key.pageUp || (key.ctrl && input === 'u')) {
+      setVOff((o) => Math.max(0, o - pageStep));
       return;
     }
-    if (key.pageDown) {
-      const step = Math.max(1, Math.floor(contentHeight * 0.9));
-      setVOff((o) => Math.min(maxVOff, o + step));
+    if (key.pageDown || (key.ctrl && input === 'd')) {
+      setVOff((o) => Math.min(maxVOff, o + pageStep));
       return;
     }
     // Horizontal scrolling only when not wrapping
@@ -134,8 +133,8 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, focus, width, 
       if (seq.includes('[1;2D') || seq.includes('[1;5D')) { setHOff((o) => Math.max(0, o - fastH)); return; }
       if (seq.includes('[1;2C') || seq.includes('[1;5C')) { setHOff((o) => Math.min(maxHOff, o + fastH)); return; }
       // Single-step
-      if (key.leftArrow) { setHOff((o) => Math.max(0, o - 1)); return; }
-      if (key.rightArrow) { setHOff((o) => Math.min(maxHOff, o + 1)); return; }
+      if (key.leftArrow || input === 'h') { setHOff((o) => Math.max(0, o - 1)); return; }
+      if (key.rightArrow || input === 'l') { setHOff((o) => Math.min(maxHOff, o + 1)); return; }
       // Page-wise horizontal scroll (~90% of width for context)
       const pageH = Math.max(1, Math.floor(width * 0.9));
       // home/end keys or raw sequences

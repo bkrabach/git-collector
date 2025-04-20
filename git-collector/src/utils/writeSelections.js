@@ -13,8 +13,10 @@ const { fetchContent } = require('./githubClient');
  */
 async function writeSelections({ url, destPath, selected, flattened }) {
   // Filter real file paths (non-missing blobs)
+  // Only include real (non-missing, non-binary) blobs
   const realPaths = new Set(
-    flattened.filter(({ node }) => node.type === 'blob' && !node.missing)
+    flattened
+      .filter(({ node }) => node.type === 'blob' && !node.missing && !node.isBinary)
       .map(({ node }) => node.path)
   );
   const paths = Array.from(selected).filter((p) => realPaths.has(p)).sort();

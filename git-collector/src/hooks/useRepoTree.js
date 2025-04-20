@@ -47,6 +47,16 @@ function useRepoTree(url, initialSelections = []) {
         if (initialSelections.length > 0) {
           mergePhantomNodes(viewRoot, initialSelections);
         }
+        // Annotate binary files (e.g. images) to disable preview/selection
+        const { extname } = require('path');
+        const binaryExts = new Set(['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg', '.ico']);
+        (function markBinary(node) {
+          if (node.type === 'blob') {
+            const ext = extname(node.path).toLowerCase();
+            node.isBinary = binaryExts.has(ext);
+          }
+          if (node.children) node.children.forEach(markBinary);
+        })(viewRoot);
         setTree(viewRoot);
       } catch (err) {
         if (mounted) setError(err.message);

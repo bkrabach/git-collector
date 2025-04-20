@@ -42,12 +42,31 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const onSave = () => {
     setSavingMsg('Saving...');
     setIsSaving(true);
-    writeSelection(() => setIsSaving(false));
+    const start = Date.now();
+    const minMs = 1000;
+    writeSelection(() => {
+      const elapsed = Date.now() - start;
+      if (elapsed < minMs) {
+        setTimeout(() => setIsSaving(false), minMs - elapsed);
+      } else {
+        setIsSaving(false);
+      }
+    });
   };
   const onSaveQuit = () => {
     setSavingMsg('Saving and exiting...');
     setIsSaving(true);
-    writeSelection(exit);
+    const start = Date.now();
+    const minMs = 1000;
+    writeSelection(() => {
+      const elapsed = Date.now() - start;
+      const finish = () => exit();
+      if (elapsed < minMs) {
+        setTimeout(finish, minMs - elapsed);
+      } else {
+        finish();
+      }
+    });
   };
   const { previewContent, previewTitle, previewFile } = usePreview(url);
   // Wrap previewFile to clear previous scrolls when loading a new file
@@ -106,7 +125,7 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const [wrapEnabled, setWrapEnabled] = React.useState(false);
   // Build controls bar items, updated on focus/width
   const controlsItems = React.useMemo(() => {
-    // Base control spec
+    // Base control spec (accessible keys)
     const base = [
       '<tab> switch focus',
       '↑/↓ navigate',
@@ -114,9 +133,9 @@ const App = ({ url, initialSelections = [], destPath }) => {
       '←/→ expand/collapse',
       '<space> select',
       '<enter> preview',
-      '<r> toggle wrap',
-      '<w> write',
-      '<x> write & quit',
+      '<w> wrap',
+      '<s> save',
+      '<x> save & quit',
       '<q> quit'
     ];
     // Filter per focus
@@ -129,8 +148,12 @@ const App = ({ url, initialSelections = [], destPath }) => {
     if (!previewContent) {
       items = items.filter((i) => !i.startsWith('<tab'));
     }
+    // Only show wrap when preview has focus
+    if (focus !== 'preview') {
+      items = items.filter((i) => !i.startsWith('<w>'));
+    }
     // Fit to available width
-    const helpItem = '<h> help';
+    const helpItem = '<?> help';
     const header = 'Controls:';
     let avail = totalCols - header.length - 1;
     const shown = [];

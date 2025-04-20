@@ -41,13 +41,16 @@ function TreePanel({ flattened, listHeight, depthOffset, selected, leftWidth, fo
       isSelected = selected.has(node.path);
       mark = isSelected ? '[x]' : '[ ]';
     }
-    // detect missing phantom entries
+    // detect missing phantom or binary entries
     const isMissing = node.missing === true;
+    const isBinary = node.isBinary === true;
     const text = `${mark} ${indent}${icon}${node.name}`;
     const props = {};
     if (isMissing) {
       props.color = 'red';
       props.strikethrough = true;
+    } else if (isBinary) {
+      props.color = 'gray';
     } else if (isPartial) {
       props.color = 'cyan';
     } else if (isSelected) {

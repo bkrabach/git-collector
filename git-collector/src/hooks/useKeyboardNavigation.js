@@ -22,7 +22,7 @@ function useKeyboardNavigation(params) {
     (input, key) => {
     // Always allow write, write+quit, quit, or help
       // Always allow write, write+quit, quit, or help
-      if (input === 'w') {
+      if (input === 's') {
       onSave();
       return;
       }
@@ -34,7 +34,7 @@ function useKeyboardNavigation(params) {
       exit();
       return;
       }
-      if (input === 'h') {
+      if (input === '?') {
       // show help screen
       onHelp();
       return;

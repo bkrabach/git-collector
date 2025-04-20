@@ -37,23 +37,23 @@ function handleTreeNav(params, input, key) {
       return;
     }
   }
-  if (key.upArrow) {
+  if (key.upArrow || input === 'k') {
     if (cursor > 0) {
       const nc = cursor - 1;
       setCursor(nc);
       if (nc < offset) setOffset(nc);
     }
-  } else if (key.downArrow) {
+  } else if (key.downArrow || input === 'j') {
     if (cursor < flattened.length - 1) {
       const nc = cursor + 1;
       setCursor(nc);
       if (nc >= offset + contentHeight) setOffset(offset + 1);
     }
-  } else if (key.pageUp) {
+  } else if (key.pageUp || (key.ctrl && input === 'u')) {
     const nc = Math.max(0, cursor - contentHeight);
     setCursor(nc);
     setOffset(Math.max(0, offset - contentHeight));
-  } else if (key.pageDown) {
+  } else if (key.pageDown || (key.ctrl && input === 'd')) {
     const nc = Math.min(flattened.length - 1, cursor + contentHeight);
     setCursor(nc);
     const mo = Math.max(0, flattened.length - contentHeight);
@@ -88,7 +88,7 @@ function handleTreeNav(params, input, key) {
     }
   }
   // Normal left arrow handling
-  if (key.leftArrow) {
+  if (key.leftArrow || input === 'h') {
     const { node, depth } = flattened[cursor] || {};
     if (node && node.type === 'tree' && node.isExpanded) {
       node.isExpanded = false;
@@ -102,7 +102,7 @@ function handleTreeNav(params, input, key) {
         }
       }
     }
-  } else if (key.rightArrow) {
+  } else if (key.rightArrow || input === 'l') {
     const { node } = flattened[cursor] || {};
     if (node && node.type === 'tree' && !node.isExpanded) {
       node.isExpanded = true;
@@ -113,15 +113,19 @@ function handleTreeNav(params, input, key) {
       if (nc >= offset + contentHeight) setOffset(offset + 1);
     }
   } else if (input === ' ') {
+    // Toggle selection only on non-binary, existing blobs
     const { node } = flattened[cursor] || {};
-    if (node && !node.missing) toggleSelection(node);
+    if (node && node.type === 'blob' && !node.missing && !node.isBinary) {
+      toggleSelection(node);
+    }
   } else if (key.return) {
+    // Expand/collapse tree or preview non-binary blobs
     const { node } = flattened[cursor] || {};
     if (node) {
       if (node.type === 'tree') {
         node.isExpanded = !node.isExpanded;
         setTree((t) => ({ ...t }));
-      } else {
+      } else if (!node.missing && !node.isBinary) {
         previewFile(node);
       }
     }
