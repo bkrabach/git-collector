@@ -1,18 +1,16 @@
 const React = require('react');
 const { Box, Text, useApp, useStdout } = require('ink');
+const { mergePhantomNodes } = require('./utils/phantomTree');
 const useRepoTree = require('./hooks/useRepoTree');
-// flattenTree unused directly; rely on useRepoTree flattened output
-const { sortTree } = require('./utils/tree');
-// const useSelectionPersistence = require('./hooks/useSelectionPersistence'); // no longer used
+// Utilities for tree manipulation
+const { getDescendantPaths } = require('./utils/tree');
 const usePreview = require('./hooks/usePreview');
 const useKeyboardNavigation = require('./hooks/useKeyboardNavigation');
 const TreePanel = require('./components/TreePanel');
 const PreviewPanel = require('./components/PreviewPanel');
-const { getDescendantPaths } = require('./utils/tree');
+// Status indicator for loading/saving
+const StatusIndicator = require('./components/StatusIndicator');
 const { toggleSelectionSet } = require('./utils/selection');
-const { fetchContent } = require('./utils/fetchers');
-const fs = require('fs');
-const path = require('path');
 
 const App = ({ url, initialSelections = [], destPath }) => {
   // Wrap Ink exit to clear screen before unmounting
@@ -22,101 +20,43 @@ const App = ({ url, initialSelections = [], destPath }) => {
     inkExit();
   };
   const { tree, setTree, flattened, error, parsed } = useRepoTree(url);
+  // State for showing help modal
+  const [showHelp, setShowHelp] = React.useState(false);
+  // UI state
+  const [isSaving, setIsSaving] = React.useState(false);
+  // Message for status indicator
+  const [savingMsg, setSavingMsg] = React.useState('');
   // Initialize selection state
   const [selected, setSelected] = React.useState(() => new Set(initialSelections));
-  const prevSelected = React.useMemo(() => new Set(initialSelections), [initialSelections]);
   // On initial load, expand all directories that contain selected files
-  const [hasExpanded, setHasExpanded] = React.useState(false);
+  // Merge phantom nodes (missing files/ancestors) into the tree once
+  const [merged, setMerged] = React.useState(false);
   React.useEffect(() => {
-    if (!hasExpanded && tree) {
-      setHasExpanded(true);
-      // 1) Expand all directories that contained previously selected files
-      const dirsToExpand = new Set();
-      initialSelections.forEach((fp) => {
-        const parts = fp.split('/');
-        let prefix = '';
-        for (let i = 0; i < parts.length - 1; i++) {
-          prefix = prefix ? `${prefix}/${parts[i]}` : parts[i];
-          dirsToExpand.add(prefix);
-        }
-      });
-      function expand(node) {
-        if (dirsToExpand.has(node.path)) node.isExpanded = true;
-        if (node.children) node.children.forEach(expand);
-      }
-      expand(tree);
-      // 2) Inject phantom ancestors and missing files into tree
-      const nodeMap = new Map();
-      function buildMap(node) {
-        nodeMap.set(node.path, node);
-        if (node.type === 'tree' && Array.isArray(node.children)) {
-          node.children.forEach(buildMap);
-        }
-      }
-      buildMap(tree);
-      initialSelections.forEach((fp) => {
-        const parts = fp.split('/');
-        let prefix = '';
-        // Ensure ancestor directories exist as phantom nodes
-        for (let i = 0; i < parts.length - 1; i++) {
-          prefix = prefix ? `${prefix}/${parts[i]}` : parts[i];
-          if (!nodeMap.has(prefix)) {
-            const parentPath = prefix.includes('/') ? prefix.slice(0, prefix.lastIndexOf('/')) : '';
-            const parent = parentPath ? nodeMap.get(parentPath) : tree;
-            const newDir = { name: parts[i], path: prefix, type: 'tree', children: [], isExpanded: true, missing: true };
-            if (parent && Array.isArray(parent.children)) {
-              parent.children.push(newDir);
-            }
-            nodeMap.set(prefix, newDir);
-          }
-        }
-        // Ensure file node exists as phantom if missing
-        if (!nodeMap.has(fp)) {
-          const fileName = parts[parts.length - 1];
-          const parentPath = parts.length > 1 ? parts.slice(0, parts.length - 1).join('/') : '';
-          const parent = parentPath ? nodeMap.get(parentPath) : tree;
-          const newFile = { name: fileName, path: fp, type: 'blob', missing: true };
-          if (parent && Array.isArray(parent.children)) {
-            parent.children.push(newFile);
-          }
-          nodeMap.set(fp, newFile);
-        }
-      });
-      // Sort tree to position phantoms correctly
-      sortTree(tree);
-      // Trigger re-render
-      setTree({ ...tree });
+    if (!merged && tree) {
+      setMerged(true);
+      const newTree = mergePhantomNodes(tree, initialSelections);
+      setTree({ ...newTree });
     }
-  }, [tree, hasExpanded, initialSelections, setTree]);
+  }, [tree, initialSelections, setTree, merged]);
   const toggleSelection = (node) => setSelected((prev) => toggleSelectionSet(prev, node, getDescendantPaths));
-  const saveSelection = (exitFn) => {
-    // Only include existing files; omit missing phantom entries
-    const realPaths = new Set(
-      flattened.filter(({ node }) => node.type === 'blob' && !node.missing).map(({ node }) => node.path)
-    );
-    const paths = Array.from(selected).filter((p) => realPaths.has(p)).sort();
+  const { writeSelections } = require('./utils/writeSelections');
+  // Core write logic: serialize and write selected files, then call exitFn
+  const writeSelection = (exitFn) => {
     (async () => {
-      const date = new Date().toLocaleString();
-      const md = [];
-      md.push('# Git Collector Data');
-      md.push(`URL: ${url}`);
-      md.push(`Date: ${date}`);
-      md.push(`Files: ${paths.length}`);
-      md.push('');
-      for (const filePath of paths) {
-        // File section separator
-        md.push(`=== File: ${filePath} ===`);
-        try {
-          const content = await fetchContent(url, filePath);
-          md.push(content);
-        } catch (e) {
-          md.push(`// Error loading file: ${e.message}`);
-        }
-        md.push('');
-      }
-      fs.writeFileSync(destPath, md.join('\n'), 'utf8');
+      await writeSelections({ url, destPath, selected, flattened });
       exitFn();
     })();
+  };
+  // Handlers for write and write&quit
+  const onSave = () => {
+    setSavingMsg('Saving...');
+    setIsSaving(true);
+    writeSelection(() => setIsSaving(false));
+  };
+  const onSaveQuit = () => {
+    setSavingMsg('Saving and exiting...');
+    setIsSaving(true);
+    writeSelection(exit);
   };
   const { previewContent, previewTitle, previewOffset, setPreviewOffset, previewFile } = usePreview(url);
   const [offset, setOffset] = React.useState(0);
@@ -141,8 +81,51 @@ const App = ({ url, initialSelections = [], destPath }) => {
   // Visible slice from flattened tree
   const visible = flattened.slice(offset, offset + contentHeight);
   const depthOffset = parsed.initialPathParts.length > 0 ? 1 : 0;
+  // Dynamically build controls string based on available width
+  const controlsStr = React.useMemo(() => {
+    const items = [
+      '<tab> switch focus',
+      '↑/↓ navigate',
+      'PgUp/PgDn page',
+      '←/→ expand/collapse',
+      '<space> select',
+      '<enter> preview',
+      '<w> write',
+      '<x> write & quit',
+      '<q> quit'
+    ];
+    const helpItem = '<h> help';
+    const header = 'Controls:';
+    // remaining width after header + space
+    let avail = totalCols - header.length - 1;
+    // Collect items that fit, excluding help
+    const shown = [];
+    for (const item of items) {
+      const segLen = item.length + 3; // item + ' | '
+      if (avail >= segLen + helpItem.length + 3) {
+        shown.push(item);
+        avail -= segLen;
+      } else {
+        break;
+      }
+    }
+    // Always include help at end if fits; otherwise drop shown items until it fits
+    let helpAvail = avail;
+    const helpLen = helpItem.length + (shown.length > 0 ? 3 : 1);
+    while (shown.length > 0 && helpAvail < helpLen) {
+      const last = shown.pop();
+      helpAvail += last.length + 3;
+    }
+    // If enough space, append help
+    if (helpAvail >= helpLen) {
+      shown.push(helpItem);
+    }
+    return `${header}${shown.length > 0 ? ' ' + shown.join(' | ') : ''}`;
+  }, [totalCols]);
 
   useKeyboardNavigation({
+    // Disable keyboard nav while help screen is displayed
+    enabled: !showHelp,
     tree,
     flattened,
     offset,
@@ -153,7 +136,9 @@ const App = ({ url, initialSelections = [], destPath }) => {
     setTree,
     focus,
     setFocus,
-    saveSelection: () => saveSelection(exit),
+    onSave,
+    onSaveQuit,
+    onHelp: () => setShowHelp(true),
     exit,
     toggleSelection,
     previewFile,
@@ -167,6 +152,11 @@ const App = ({ url, initialSelections = [], destPath }) => {
   }
   if (!tree) {
     return React.createElement(Text, null, 'Loading repository tree...');
+  }
+  // Show full-screen help modal if requested
+  if (showHelp) {
+    const HelpScreen = require('./components/HelpScreen');
+    return React.createElement(HelpScreen, { onClose: () => setShowHelp(false) });
   }
 
   const leftLines = flattened.map(({ node, depth }) => {
@@ -224,10 +214,16 @@ const App = ({ url, initialSelections = [], destPath }) => {
       { height: 1, width: totalCols, flexShrink: 0 },
       React.createElement(Text, { color: 'gray' }, '─'.repeat(totalCols))
     ),
+    // Status indicator (e.g. saving animation)
+    isSaving && React.createElement(StatusIndicator, { message: savingMsg }),
     React.createElement(
       Box,
       { height: controlsHeight, width: totalCols, flexShrink: 0, backgroundColor: 'gray' },
-      React.createElement(Text, { color: 'whiteBright' }, 'Controls: ↑/↓ navigate, PgUp/PgDn page, ←/→ expand/collapse, space select, s save&quit, q quit')
+      React.createElement(
+        Text,
+        { color: 'white' },
+        controlsStr
+      )
     )
   );
 };

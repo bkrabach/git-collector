@@ -5,8 +5,12 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// attempt to get a GitHub API token: env var or `gh auth token`
-// Attempt to get GitHub API token: env var, gh CLI, or GH CLI hosts file
+/*
+ * GitHub token lookup is intentionally robust:
+ *   1. Environment variables: GITHUB_TOKEN or GH_TOKEN
+ *   2. Fallback to `gh auth token` via GitHub CLI
+ *   3. Fallback to oauth_token in ~/.config/gh/hosts.yml
+ */
 let ghToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 if (!ghToken) {
   try {
