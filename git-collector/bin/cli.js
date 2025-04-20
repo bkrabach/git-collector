@@ -45,21 +45,29 @@ if (fs.existsSync(fullDestPath)) {
 
 /** Mount the Ink application with given parameters */
 function startApp(url, initialSelections, destPath) {
-  // Prepare stdin for Ink: if not a TTY, create a fake TTY-like stream
+  // Prepare stdin for Ink: if not a TTY, wrap in a fake TTY-like stream that passes through data
   let stdin = process.stdin;
   if (!stdin.isTTY) {
-    const { Readable } = require('stream');
-    const fake = new Readable({ read() {} });
+    const { PassThrough } = require('stream');
+    const fake = new PassThrough();
     fake.isTTY = true;
-    fake.setRawMode = () => {};
+    // Delegate raw mode toggles to the real stdin if possible
+    fake.setRawMode = (mode) => {
+      if (typeof process.stdin.setRawMode === 'function') {
+        process.stdin.setRawMode(mode);
+      }
+    };
+    process.stdin.pipe(fake);
     stdin = fake;
   }
-  // Render the Ink app and clear screen & scrollback after exit
+  // Switch to the alternate terminal buffer (like vim) so the screen is restored on exit
+  process.stdout.write('\x1b[?1049h');
   const { waitUntilExit } = render(
     React.createElement(App, { url, initialSelections, destPath }),
     { stdin }
   );
+  // On exit, return to the normal buffer
   waitUntilExit().then(() => {
-    process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
+    process.stdout.write('\x1b[?1049l');
   });
 }
