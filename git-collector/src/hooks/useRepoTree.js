@@ -2,10 +2,12 @@ const React = require('react');
 const { fetchTree } = require('../utils/githubClient');
 const { buildTree, sortTree, flattenTree } = require('../utils/tree');
 const { parseGitHubUrl } = require('../utils/urlUtils');
+const { mergePhantomNodes } = require('../utils/phantomTree');
 
 /**
- * Hook to fetch and build a GitHub repo tree.
+ * Hook to fetch and build a GitHub repo tree, injecting phantom nodes for selected paths.
  * @param {string} url - GitHub repository URL.
+ * @param {string[]} [initialSelections] - File paths to add as phantom nodes.
  * @returns {{
  *   tree: object | null,
  *   setTree: Function,
@@ -14,7 +16,7 @@ const { parseGitHubUrl } = require('../utils/urlUtils');
  *   parsed: {owner: string, repo: string, branch: string, initialPathParts: string[]}
  * }}
  */
-function useRepoTree(url) {
+function useRepoTree(url, initialSelections = []) {
   const [tree, setTree] = React.useState(null);
   const [error, setError] = React.useState(null);
   const parsed = React.useMemo(() => parseGitHubUrl(url), [url]);
@@ -41,13 +43,17 @@ function useRepoTree(url) {
           }
           viewRoot = curr;
         }
+        // Inject phantom nodes for any initial selections not in tree
+        if (initialSelections.length > 0) {
+          mergePhantomNodes(viewRoot, initialSelections);
+        }
         setTree(viewRoot);
       } catch (err) {
         if (mounted) setError(err.message);
       }
     })();
     return () => { mounted = false; };
-  }, [url, branch, initialPathParts]);
+  }, [url, branch, initialPathParts, initialSelections]);
 
   const flattened = React.useMemo(() => (tree ? flattenTree(tree) : []), [tree]);
 

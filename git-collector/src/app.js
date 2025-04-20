@@ -1,6 +1,5 @@
 const React = require('react');
 const { Box, Text, useApp, useStdout } = require('ink');
-const { mergePhantomNodes } = require('./utils/phantomTree');
 const useRepoTree = require('./hooks/useRepoTree');
 // Utilities for tree manipulation
 const { getDescendantPaths } = require('./utils/tree');
@@ -8,6 +7,7 @@ const usePreview = require('./hooks/usePreview');
 const useKeyboardNavigation = require('./hooks/useKeyboardNavigation');
 const TreePanel = require('./components/TreePanel');
 const PreviewPanel = require('./components/PreviewPanel');
+const ControlsBar = require('./components/ControlsBar');
 // Status indicator for loading/saving
 const StatusIndicator = require('./components/StatusIndicator');
 const { toggleSelectionSet } = require('./utils/selection');
@@ -20,7 +20,7 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const exit = () => {
     inkExit();
   };
-  const { tree, setTree, flattened, error, parsed } = useRepoTree(url);
+  const { tree, setTree, flattened, error, parsed } = useRepoTree(url, initialSelections);
   // State for showing help modal
   const [showHelp, setShowHelp] = React.useState(false);
   // UI state
@@ -29,16 +29,6 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const [savingMsg, setSavingMsg] = React.useState('');
   // Initialize selection state
   const [selected, setSelected] = React.useState(() => new Set(initialSelections));
-  // On initial load, expand all directories that contain selected files
-  // Merge phantom nodes (missing files/ancestors) into the tree once
-  const [merged, setMerged] = React.useState(false);
-  React.useEffect(() => {
-    if (!merged && tree) {
-      setMerged(true);
-      const newTree = mergePhantomNodes(tree, initialSelections);
-      setTree({ ...newTree });
-    }
-  }, [tree, initialSelections, setTree, merged]);
   const toggleSelection = (node) => setSelected((prev) => toggleSelectionSet(prev, node, getDescendantPaths));
   const { writeSelections } = require('./utils/writeSelections');
   // Core write logic: serialize and write selected files, then call exitFn
@@ -59,37 +49,37 @@ const App = ({ url, initialSelections = [], destPath }) => {
     setIsSaving(true);
     writeSelection(exit);
   };
-  const { previewContent, previewTitle, previewOffset, setPreviewOffset, previewFile } = usePreview(url);
-  const [previewHOffset, setPreviewHOffset] = React.useState(0);
-  // Wrap previewFile to reset both vertical and horizontal scrolls when loading new file
+  const { previewContent, previewTitle, previewFile } = usePreview(url);
+  // Wrap previewFile to clear previous scrolls when loading a new file
   const previewFileWrapped = (node) => {
-    setPreviewOffset(0);
-    setPreviewHOffset(0);
     previewFile(node);
   };
-  const [offset, setOffset] = React.useState(0);
-  const [cursor, setCursor] = React.useState(0);
   const [focus, setFocus] = React.useState('tree');
-  // Track token counts for selected files
+  // Track and batch token counts for selected files
   const [tokenCounts, setTokenCounts] = React.useState({});
   // Initialize js-tiktoken encoder
   const { Tiktoken } = require('js-tiktoken/lite');
   const o200k_base = require('js-tiktoken/ranks/o200k_base');
   const encoder = React.useMemo(() => new Tiktoken(o200k_base), []);
-  // Fetch token counts on selection changes
+  // Fetch missing token counts in a single batch when selection changes
   React.useEffect(() => {
-    selected.forEach((path) => {
-      if (!(path in tokenCounts)) {
-        // fetch content and count tokens
-        fetchContent(url, path)
-          .then((content) => {
-            const count = encoder.encode(content).length;
-            setTokenCounts((prev) => ({ ...prev, [path]: count }));
-          })
-          .catch(() => {});
-      }
-    });
-  }, [selected, tokenCounts, url, encoder]);
+    const missing = Array.from(selected).filter((path) => !(path in tokenCounts));
+    if (missing.length === 0) return;
+    (async () => {
+      const newCounts = {};
+      await Promise.all(
+        missing.map(async (path) => {
+          try {
+            const content = await fetchContent(url, path);
+            newCounts[path] = encoder.encode(content).length;
+          } catch {
+            newCounts[path] = 0;
+          }
+        })
+      );
+      setTokenCounts((prev) => ({ ...prev, ...newCounts }));
+    })();
+  }, [selected, url, encoder]);
   const selectedCount = selected.size;
   const totalTokens = Array.from(selected).reduce(
     (sum, p) => sum + (tokenCounts[p] || 0),
@@ -111,8 +101,6 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const controlsHeight = 1;
   const listHeight = Math.max(0, totalRows - controlsHeight - 1);
   const contentHeight = Math.max(0, listHeight - 2);
-  // Visible slice from flattened tree
-  const visible = flattened.slice(offset, offset + contentHeight);
   const depthOffset = parsed.initialPathParts.length > 0 ? 1 : 0;
   // Build and fit control items based on focus and available width
   const controlsItems = React.useMemo(() => {
@@ -177,27 +165,13 @@ const App = ({ url, initialSelections = [], destPath }) => {
     // Disable keyboard nav while help screen is displayed
     enabled: !showHelp,
     tree,
-    flattened,
-    offset,
-    setOffset,
-    cursor,
-    setCursor,
-    contentHeight,
-    setTree,
     focus,
     setFocus,
     onSave,
     onSaveQuit,
     onHelp: () => setShowHelp(true),
     exit,
-    toggleSelection,
-    previewFile: previewFileWrapped,
-    previewContent,
-    previewOffset,
-    setPreviewOffset,
-    previewHOffset,
-    setPreviewHOffset,
-    width: panelWidth
+    previewContent
   });
 
   if (error) {
@@ -219,16 +193,17 @@ const App = ({ url, initialSelections = [], destPath }) => {
       Box,
       { flexDirection: 'row', height: listHeight },
       React.createElement(TreePanel, {
-        visible,
-        offset,
+        flattened,
         listHeight,
         depthOffset,
         selected,
-        cursor,
         leftWidth,
         focus,
         selectedCount,
-        totalTokens
+        totalTokens,
+        onToggleSelection: toggleSelection,
+        onPreviewFile: previewFileWrapped,
+        setTree
       }),
       React.createElement(
         Box,
@@ -241,10 +216,7 @@ const App = ({ url, initialSelections = [], destPath }) => {
         previewContent,
         previewTitle,
         listHeight,
-        previewOffset,
-        previewHOffset,
         focus,
-        // Ensure non-negative width to avoid repeat(-n) errors
         width: Math.max(0, totalCols - leftWidth - 3)
       })
     ),
@@ -255,28 +227,7 @@ const App = ({ url, initialSelections = [], destPath }) => {
     ),
     // Status indicator (e.g. saving animation)
     isSaving && React.createElement(StatusIndicator, { message: savingMsg }),
-    React.createElement(
-      Box,
-      { height: controlsHeight, width: totalCols, flexShrink: 0, backgroundColor: 'gray', flexDirection: 'row', alignItems: 'center' },
-      controlsItems.map((item, idx) => {
-        // Split first token (key) from rest
-        const match = item.match(/^(\S+)/);
-        const keyPart = match ? match[1] : '';
-        const rest = match ? item.slice(keyPart.length) : item;
-        // Render keyPart with slash in white, key chars in magenta
-        const fragments = [];
-        if (keyPart) {
-          const segs = keyPart.split('/');
-          segs.forEach((seg, i) => {
-            fragments.push(React.createElement(Text, { color: 'magenta', key: `key-${idx}-${i}` }, seg));
-            if (i < segs.length - 1) fragments.push(React.createElement(Text, { color: 'white', key: `slash-${idx}-${i}` }, '/'));
-          });
-        }
-        fragments.push(React.createElement(Text, { color: 'white', key: `rest-${idx}` }, rest));
-        if (idx < controlsItems.length - 1) fragments.push(React.createElement(Text, { color: 'white', key: `sep-${idx}` }, ' | '));
-        return React.createElement(Box, { key: idx, wrap: 'truncate', flexShrink: 0, flexDirection: 'row' }, ...fragments);
-      })
-    )
+    React.createElement(ControlsBar, { controlsItems, totalCols, controlsHeight })
   );
 };
 

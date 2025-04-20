@@ -1,5 +1,5 @@
 const React = require('react');
-const { Box, Text, useStdout } = require('ink');
+const { Box, Text, useStdout, useInput } = require('ink');
 const path = require('path');
 // js-tiktoken for accurate token counting
 const { Tiktoken } = require('js-tiktoken/lite');
@@ -9,7 +9,7 @@ const encoder = new Tiktoken(o200k_base);
 // PreviewPanel: renders file full content or markdown
 // PreviewPanel: renders file full content or highlighted code
 // PreviewPanel: renders file full content or highlighted code, clipped to listHeight rows
-function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset, previewHOffset = 0, focus, width }) {
+function PreviewPanel({ previewContent, previewTitle, listHeight, focus, width }) {
   const ext = path.extname(previewTitle).slice(1).toLowerCase();
   // get terminal width for border
   const { stdout } = useStdout();
@@ -47,25 +47,54 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
       ` ${tokenStr} `
     )
   );
+  // Prepare line buffers and scroll offsets
+  const allLines = (previewContent || '').split(/\r?\n/);
+  const contentHeight = Math.max(0, listHeight - 2);
+  const maxVOff = Math.max(0, allLines.length - contentHeight);
+  const maxLineLen = allLines.reduce((m, l) => Math.max(m, l.length), 0);
+  const maxHOff = Math.max(0, maxLineLen - width);
+  const [vOff, setVOff] = React.useState(0);
+  const [hOff, setHOff] = React.useState(0);
+  useInput((input, key) => {
+    if (focus !== 'preview') return;
+    const seq = input || '';
+    // Fast vertical scroll via Shift/Ctrl + Up/Down (~10% of height)
+    if (seq.includes('[1;2A') || seq.includes('[1;5A')) {
+      setVOff(o => Math.max(0, o - Math.max(1, Math.floor(contentHeight * 0.10))));
+      return;
+    }
+    if (seq.includes('[1;2B') || seq.includes('[1;5B')) {
+      setVOff(o => Math.min(maxVOff, o + Math.max(1, Math.floor(contentHeight * 0.10))));
+      return;
+    }
+    // Fast horizontal scroll via Shift/Ctrl + Left/Right (~10% of width)
+    const fastH = Math.max(1, Math.floor(width * 0.10));
+    if (seq.includes('[1;2D') || seq.includes('[1;5D')) {
+      setHOff(o => Math.max(0, o - fastH));
+      return;
+    }
+    if (seq.includes('[1;2C') || seq.includes('[1;5C')) {
+      setHOff(o => Math.min(maxHOff, o + fastH));
+      return;
+    }
+    // Home/End for horizontal
+    if (key.home) { setHOff(0); return; }
+    if (key.end) { setHOff(maxHOff); return; }
+    // Normal arrow navigation
+    if (key.upArrow) { setVOff(o => Math.max(0, o - 1)); return; }
+    if (key.downArrow) { setVOff(o => Math.min(maxVOff, o + 1)); return; }
+    if (key.leftArrow) { setHOff(o => Math.max(0, o - 1)); return; }
+    if (key.rightArrow) { setHOff(o => Math.min(maxHOff, o + 1)); return; }
+  }, { isActive: focus === 'preview' });
   // Markdown
   if (ext === 'md') {
-    // build preview lines for Markdown: treat as plain text, one row per original line, truncating any overflow
-    const mdLines = previewContent.split(/\r?\n/);
-    // reserve two rows: header and border
-    const contentHeight = Math.max(0, listHeight - 2);
-    const sliceLines = mdLines.slice(previewOffset, previewOffset + contentHeight);
+    const mdLines = allLines;
+    const sliceLines = mdLines.slice(vOff, vOff + contentHeight);
     const fragLines = sliceLines.map((line) =>
-      // Pad and slice for horizontal scroll; blank lines as single space
-      line
-        .padEnd(previewHOffset + width, ' ')
-        .slice(previewHOffset, previewHOffset + width) || ' '
+      (line.padEnd(hOff + width, ' ').slice(hOff, hOff + width)) || ' '
     );
     const lines = fragLines.map((text, i) =>
-      React.createElement(
-        Text,
-        { key: `md-${i}`, wrap: 'truncate' },
-        text
-      )
+      React.createElement(Text, { key: `md-${i}`, wrap: 'truncate' }, text)
     );
     // pad to fill content area
     const padCount = Math.max(0, contentHeight - lines.length);
@@ -93,7 +122,7 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
     );
   }
   // build code/data preview lines (highlight only if language supported)
-  const linesRaw = previewContent.split(/\r?\n/);
+  const linesRaw = allLines;
   let highlight, supportsLanguage;
   try {
     const cli = require('cli-highlight');
@@ -104,13 +133,10 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
     supportsLanguage = () => false;
   }
   const shouldHighlight = highlight && ext && supportsLanguage(ext);
-  const contentHeight2 = Math.max(0, listHeight - 2);
   // Vertical slice
-  const vert = linesRaw.slice(previewOffset, previewOffset + contentHeight2);
-  // Horizontal slice on raw lines
-  const rawSlice = vert.map((l) =>
-    l.padEnd(previewHOffset + width, ' ').slice(previewHOffset, previewHOffset + width)
-  );
+  const vert = linesRaw.slice(vOff, vOff + contentHeight);
+  // Horizontal slice
+  const rawSlice = vert.map((l) => l.padEnd(hOff + width, ' ').slice(hOff, hOff + width));
   // Apply syntax highlighting per visible fragment if supported
   const lines2 = rawSlice.map((frag, i) => {
     const text = frag === '' ? ' ' : frag;
@@ -127,29 +153,11 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
     );
   });
   // Pad to fill content area if needed
-  const pad2 = Math.max(0, contentHeight2 - lines2.length);
-  for (let i = 0; i < pad2; i++) {
-    lines2.push(
-      React.createElement(
-        Text,
-        { key: `pad2-${i}`, wrap: 'truncate' },
-        ''
-      )
-    );
-  }
+  const pad2 = Math.max(0, contentHeight - lines2.length);
+  for (let i = 0; i < pad2; i++) lines2.push(React.createElement(Text, { key: `pad2-${i}`, wrap: 'truncate' }, ''));
   // border under header
-  const border2 = React.createElement(
-    Text,
-    { color: focus === 'preview' ? 'magenta' : 'gray', key: 'border2', wrap: 'truncate' },
-    '─'.repeat(width)
-  );
-  return React.createElement(
-    Box,
-    { flexDirection: 'column', width, height: listHeight },
-    header,
-    border2,
-    ...lines2
-  );
+  const border2 = React.createElement(Text, { color: focus === 'preview' ? 'magenta' : 'gray', key: 'border2', wrap: 'truncate' }, '─'.repeat(width));
+  return React.createElement(Box, { flexDirection: 'column', width, height: listHeight }, header, border2, ...lines2);
 }
 
 module.exports = PreviewPanel;

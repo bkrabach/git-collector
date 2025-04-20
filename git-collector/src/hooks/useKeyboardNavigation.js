@@ -1,6 +1,5 @@
 const React = require('react');
 const { useInput } = require('ink');
-const { handleTreeNav, handlePreviewNav } = require('./keyboardHandlers');
 
 /**
  * Hook to handle keyboard navigation and actions.
@@ -9,24 +8,13 @@ const { handleTreeNav, handlePreviewNav } = require('./keyboardHandlers');
 function useKeyboardNavigation(params) {
   const {
     tree,
-    flattened,
-    offset,
-    setOffset,
-    cursor,
-    setCursor,
-    contentHeight,
-    setTree,
     focus,
     setFocus,
     onSave,
     onSaveQuit,
     onHelp,
     exit,
-    toggleSelection,
-    previewFile,
-    previewContent,
-    previewOffset,
-    setPreviewOffset
+    previewContent
   } = params;
 
   const { enabled = true } = params;
@@ -54,19 +42,11 @@ function useKeyboardNavigation(params) {
       if (!tree) return;
       // Switch focus
       if (key.tab) {
-        // Switch focus: only enter preview if content is loaded
         setFocus((f) => {
-          if (f === 'tree') {
-            return previewContent ? 'preview' : 'tree';
-          }
+          if (f === 'tree') return previewContent ? 'preview' : 'tree';
           return 'tree';
         });
         return;
-      }
-      if (focus === 'tree') {
-        handleTreeNav(params, input, key);
-      } else {
-        handlePreviewNav(params, input, key);
       }
     },
     { isActive: enabled }
