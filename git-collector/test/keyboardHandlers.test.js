@@ -103,4 +103,77 @@ describe('handlePreviewNav horizontal scroll', () => {
     // max offset = 7 - 3 = 4
     expect(previewHOffset).toBe(4);
   });
+  test('ctrl+left raw sequence scrolls left by fastStep', () => {
+    // fastStep = floor(3 * .10) = 0 -> min 1
+    previewHOffset = 4;
+    handlePreviewNav(params(), '\u001b[1;2D', {});
+    expect(previewHOffset).toBe(3);
+  });
+  test('ctrl+right raw sequence scrolls right by fastStep up to max', () => {
+    const maxH = 4;
+    previewHOffset = 0;
+    handlePreviewNav(params(), '\u001b[1;2C', {});
+    expect(previewHOffset).toBe(1);
+    previewHOffset = maxH;
+    handlePreviewNav(params(), '\u001b[1;2C', {});
+    expect(previewHOffset).toBe(maxH);
+  });
+});
+
+describe('handleTreeNav fast vertical scroll', () => {
+  // simulate a tree of 20 items
+  const nodes = Array.from({ length: 20 }, (_, i) => ({ node: { path: `f${i}`, type: 'blob' }, depth: 1 }));
+  let params;
+  beforeEach(() => {
+    params = {
+      flattened: nodes,
+      offset: 5,
+      setOffset: jest.fn((fn) => { params.offset = fn(params.offset); }),
+      cursor: 6,
+      setCursor: jest.fn((fn) => { params.cursor = fn(params.cursor); }),
+      contentHeight: 10,
+      setTree: () => {},
+      toggleSelection: () => {},
+      previewFile: () => {}
+    };
+  });
+  test('shift raw up sequence scrolls up by fastV', () => {
+    // fastV = floor(10*0.10)=1
+    handleTreeNav(params, '\u001b[1;2A', {});
+    expect(params.setOffset).toHaveBeenCalled();
+    expect(params.offset).toBe(4);
+    expect(params.setCursor).toHaveBeenCalled();
+    expect(params.cursor).toBe(5);
+  });
+  test('ctrl raw down sequence scrolls down by fastV', () => {
+    params.offset = 0;
+    params.cursor = 0;
+    handleTreeNav(params, '\u001b[1;5B', {});
+    expect(params.setOffset).toHaveBeenCalled();
+    expect(params.offset).toBe(1);
+    expect(params.setCursor).toHaveBeenCalled();
+    expect(params.cursor).toBe(1);
+  });
+});
+
+describe('handlePreviewNav vertical fast scroll', () => {
+  // generate 20-line content
+  const content = Array.from({ length: 20 }, () => 'line').join('\n');
+  let offset;
+  let setPreviewOffset;
+  const paramsV = () => ({ previewContent: content, previewOffset: offset, setPreviewOffset, contentHeight: 10 });
+  beforeEach(() => {
+    offset = 5;
+    setPreviewOffset = (fn) => { offset = fn(offset); };
+  });
+  test('raw Shift+Up sequence scrolls up by fastV (~1)', () => {
+    offset = 5;
+    handlePreviewNav(paramsV(), '\u001b[1;2A', {});
+    expect(offset).toBe(4);
+  });
+  test('raw Ctrl+Down sequence scrolls down by fastV (~1)', () => {
+    offset = 0;
+    handlePreviewNav(paramsV(), '\u001b[1;5B', {});
+    expect(offset).toBe(1);
+  });
 });
