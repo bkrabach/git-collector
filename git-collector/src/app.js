@@ -88,9 +88,10 @@ const App = ({ url, initialSelections = [], destPath }) => {
   // Visible slice from flattened tree
   const visible = flattened.slice(offset, offset + contentHeight);
   const depthOffset = parsed.initialPathParts.length > 0 ? 1 : 0;
-  // Dynamically build controls string based on available width
+  // Build and fit control items based on focus and available width
   const controlsItems = React.useMemo(() => {
-    const items = [
+    // Base control spec
+    const base = [
       '<tab> switch focus',
       '↑/↓ navigate',
       'PgUp/PgDn page',
@@ -101,26 +102,33 @@ const App = ({ url, initialSelections = [], destPath }) => {
       '<x> write & quit',
       '<q> quit'
     ];
+    // Filter per focus
+    let items = base;
+    if (focus === 'preview') {
+      items = items
+        .filter((i) => !i.startsWith('<space') && !i.startsWith('<enter'))
+        .map((i) => i.replace('navigate', 'scroll').replace('expand/collapse', 'scroll'));
+    }
+    if (!previewContent) {
+      items = items.filter((i) => !i.startsWith('<tab'));
+    }
+    // Fit to available width
     const helpItem = '<h> help';
     const header = 'Controls:';
     let avail = totalCols - header.length - 1;
     const shown = [];
     for (const item of items) {
-      const segLen = item.length + 3;
-      if (avail >= segLen + helpItem.length + 3) {
+      const segLen = item.length + (shown.length > 0 ? 3 : 0);
+      if (avail >= segLen) {
         shown.push(item);
         avail -= segLen;
       } else break;
     }
-    let helpAvail = avail;
-    const helpLen = helpItem.length + (shown.length > 0 ? 3 : 1);
-    while (shown.length > 0 && helpAvail < helpLen) {
-      const last = shown.pop();
-      helpAvail += last.length + 3;
-    }
-    if (helpAvail >= helpLen) shown.push(helpItem);
+    // Always append help if space
+    const helpSeg = helpItem.length + (shown.length > 0 ? 3 : 0);
+    if (avail >= helpSeg) shown.push(helpItem);
     return shown;
-  }, [totalCols]);
+  }, [focus, previewContent, totalCols]);
 
   // Compute left panel width to determine preview panel width
   const leftLines = flattened.map(({ node, depth }) => {
@@ -224,16 +232,21 @@ const App = ({ url, initialSelections = [], destPath }) => {
       { height: controlsHeight, width: totalCols, flexShrink: 0, backgroundColor: 'gray', flexDirection: 'row', alignItems: 'center' },
       controlsItems.map((item, idx) => {
         // Split first token (key) from rest
-        const parts = item.match(/^(\S+)/);
-        const keyPart = parts ? parts[1] : '';
-        const rest = parts ? item.slice(keyPart.length) : item;
-        return React.createElement(
-          Text,
-          { key: idx, wrap: 'truncate' },
-          keyPart ? React.createElement(Text, { color: 'magenta' }, keyPart) : null,
-          React.createElement(Text, { color: 'white' }, rest),
-          idx < controlsItems.length - 1 ? React.createElement(Text, { color: 'white' }, ' | ') : null
-        );
+        const match = item.match(/^(\S+)/);
+        const keyPart = match ? match[1] : '';
+        const rest = match ? item.slice(keyPart.length) : item;
+        // Render keyPart with slash in white, key chars in magenta
+        const fragments = [];
+        if (keyPart) {
+          const segs = keyPart.split('/');
+          segs.forEach((seg, i) => {
+            fragments.push(React.createElement(Text, { color: 'magenta', key: `key-${idx}-${i}` }, seg));
+            if (i < segs.length - 1) fragments.push(React.createElement(Text, { color: 'white', key: `slash-${idx}-${i}` }, '/'));
+          });
+        }
+        fragments.push(React.createElement(Text, { color: 'white', key: `rest-${idx}` }, rest));
+        if (idx < controlsItems.length - 1) fragments.push(React.createElement(Text, { color: 'white', key: `sep-${idx}` }, ' | '));
+        return React.createElement(Box, { key: idx, wrap: 'truncate', flexShrink: 0, flexDirection: 'row' }, ...fragments);
       })
     )
   );

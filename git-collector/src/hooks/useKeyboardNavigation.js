@@ -54,9 +54,15 @@ function useKeyboardNavigation(params) {
       if (!tree) return;
       // Switch focus
       if (key.tab) {
-      setFocus((f) => (f === 'tree' ? 'preview' : 'tree'));
-      return;
-    }
+        // Switch focus: only enter preview if content is loaded
+        setFocus((f) => {
+          if (f === 'tree') {
+            return previewContent ? 'preview' : 'tree';
+          }
+          return 'tree';
+        });
+        return;
+      }
       if (focus === 'tree') {
         handleTreeNav(params, input, key);
       } else {
