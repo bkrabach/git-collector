@@ -1,1 +1,5 @@
-git-collector/node_modules/
+node_modules/
+coverage/
+*.log
+npm-debug.log*
+jest-debug.log*
