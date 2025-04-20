@@ -103,6 +103,8 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const contentHeight = Math.max(0, listHeight - 2);
   const depthOffset = parsed.initialPathParts.length > 0 ? 1 : 0;
   // Build and fit control items based on focus and available width
+  const [wrapEnabled, setWrapEnabled] = React.useState(false);
+  // Build controls bar items, updated on focus/width
   const controlsItems = React.useMemo(() => {
     // Base control spec
     const base = [
@@ -112,6 +114,7 @@ const App = ({ url, initialSelections = [], destPath }) => {
       '←/→ expand/collapse',
       '<space> select',
       '<enter> preview',
+      '<r> toggle wrap',
       '<w> write',
       '<x> write & quit',
       '<q> quit'
@@ -217,7 +220,9 @@ const App = ({ url, initialSelections = [], destPath }) => {
         previewTitle,
         listHeight,
         focus,
-        width: Math.max(0, totalCols - leftWidth - 3)
+        width: Math.max(0, totalCols - leftWidth - 3),
+        wrapEnabled,
+        toggleWrap: setWrapEnabled
       })
     ),
     React.createElement(
