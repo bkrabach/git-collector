@@ -209,7 +209,7 @@ const App = ({ url, initialSelections = [], destPath }) => {
   // Show full-screen help modal if requested
   if (showHelp) {
     const HelpScreen = require('./components/HelpScreen');
-    return React.createElement(HelpScreen, { onClose: () => setShowHelp(false) });
+    return React.createElement(HelpScreen, { onClose: () => setShowHelp(false), focus });
   }
 
   return React.createElement(
