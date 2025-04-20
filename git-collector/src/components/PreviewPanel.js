@@ -32,7 +32,7 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
       React.createElement(
         Text,
         { key: `md-${i}`, wrap: 'truncate' },
-        line
+        line === '' ? ' ' : line
       )
     );
     // pad to fill content area
@@ -81,12 +81,13 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
   const contentHeight2 = Math.max(0, listHeight - 2);
   const slice2 = processed.slice(previewOffset, previewOffset + contentHeight2);
   const lines2 = [];
-  slice2.forEach((line, i) => {
+  slice2.forEach((lineRaw, i) => {
+    const display = lineRaw === '' ? ' ' : lineRaw;
     lines2.push(
       React.createElement(
         Text,
         { key: `line-${i}`, wrap: 'truncate' },
-        line
+        display
       )
     );
   });
