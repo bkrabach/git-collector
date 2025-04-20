@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { fetchContent } = require('./fetchers');
+const { fetchContent } = require('./githubClient');
 
 /**
  * Serialize selected files from a repository into a Markdown document

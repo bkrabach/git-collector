@@ -1,5 +1,5 @@
 const React = require('react');
-const { fetchTree } = require('../utils/fetchers');
+const { fetchTree } = require('../utils/githubClient');
 const { buildTree, sortTree, flattenTree } = require('../utils/tree');
 const { parseGitHubUrl } = require('../utils/urlUtils');
 

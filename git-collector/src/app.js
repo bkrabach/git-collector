@@ -11,7 +11,7 @@ const PreviewPanel = require('./components/PreviewPanel');
 // Status indicator for loading/saving
 const StatusIndicator = require('./components/StatusIndicator');
 const { toggleSelectionSet } = require('./utils/selection');
-const { fetchContent } = require('./utils/fetchers');
+const { fetchContent } = require('./utils/githubClient');
 
 const App = ({ url, initialSelections = [], destPath }) => {
   // Wrap Ink exit to clear screen before unmounting

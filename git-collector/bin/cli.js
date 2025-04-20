@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const fullDestPath = path.resolve(process.cwd(), destPathArg);
 // Utils for update mode
-const { fetchContent } = require('../src/utils/fetchers');
+const { fetchContent } = require('../src/utils/githubClient');
 
 async function updateDataFile(url, paths, destPath) {
   // Read existing data file to extract old contents

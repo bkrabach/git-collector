@@ -1,5 +1,5 @@
 const React = require('react');
-const { fetchContent } = require('../utils/fetchers');
+const { fetchContent } = require('../utils/githubClient');
 
 /**
  * Hook to manage file preview state and loading.

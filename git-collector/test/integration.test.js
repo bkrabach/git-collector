@@ -1,5 +1,5 @@
 // Integration tests for fetchTree and tree utilities
-const { fetchTree } = require('../src/utils/fetchers');
+const { fetchTree } = require('../src/utils/githubClient');
 const { buildTree, sortTree, flattenTree } = require('../src/utils/tree');
 
 describe('Integration: fetch and build tree', () => {
