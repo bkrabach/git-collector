@@ -2,6 +2,8 @@
 
 Git Collector is a command-line tool that lets you interactively browse a GitHub repository, select files or directories, and collect their contents into a Markdown data file. It's useful for gathering code snippets, configuration files, or other resources from a repository for offline use or documentation, especially for sharing with an AI assistant.
 
+![Git Collector Screenshot](git-collector-screenshot.png)
+
 ## Features
 
 - Navigate a repository tree fetched from GitHub
