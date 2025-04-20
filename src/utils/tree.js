@@ -42,18 +42,22 @@ function flattenTree(node, depth = 0) {
   return result;
 }
 
-// Get all descendant paths of a tree node (excluding itself)
+// Get all selectable descendant file paths of a tree node (excluding itself)
+// Only include non-binary, existing blob nodes and recurse into subtrees
 function getDescendantPaths(node) {
-  // No descendants if no children array
   if (!node.children || !Array.isArray(node.children)) {
     return [];
   }
   let paths = [];
   for (const child of node.children) {
-    paths.push(child.path);
-    if (child.type === 'tree') {
+    // include only real, non-binary files
+    if (child.type === 'blob' && !child.missing && !child.isBinary) {
+      paths.push(child.path);
+    // recurse into directories
+    } else if (child.type === 'tree') {
       paths = paths.concat(getDescendantPaths(child));
     }
+    // skip phantom or binary blobs and skip directory nodes themselves
   }
   return paths;
 }

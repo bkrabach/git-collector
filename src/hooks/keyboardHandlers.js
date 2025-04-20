@@ -113,10 +113,16 @@ function handleTreeNav(params, input, key) {
       if (nc >= offset + contentHeight) setOffset(offset + 1);
     }
   } else if (input === ' ') {
-    // Toggle selection only on non-binary, existing blobs
+    // Toggle selection: files or entire folders (ignoring phantom/missing or binary files)
     const { node } = flattened[cursor] || {};
-    if (node && node.type === 'blob' && !node.missing && !node.isBinary) {
-      toggleSelection(node);
+    if (node) {
+      if (node.type === 'blob' && !node.missing && !node.isBinary) {
+        // toggle individual file
+        toggleSelection(node);
+      } else if (node.type === 'tree') {
+        // toggle all selectable descendants of folder
+        toggleSelection(node);
+      }
     }
   } else if (key.return) {
     // Expand/collapse tree or preview non-binary blobs
