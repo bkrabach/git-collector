@@ -5,7 +5,7 @@ const path = require('path');
 // PreviewPanel: renders file full content or markdown
 // PreviewPanel: renders file full content or highlighted code
 // PreviewPanel: renders file full content or highlighted code, clipped to listHeight rows
-function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset, focus, width }) {
+function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset, previewHOffset = 0, focus, width }) {
   const ext = path.extname(previewTitle).slice(1).toLowerCase();
   // get terminal width for border
   const { stdout } = useStdout();
@@ -28,11 +28,17 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
     // reserve two rows: header and border
     const contentHeight = Math.max(0, listHeight - 2);
     const sliceLines = mdLines.slice(previewOffset, previewOffset + contentHeight);
-    const lines = sliceLines.map((line, i) =>
+    const fragLines = sliceLines.map((line) =>
+      // Pad and slice for horizontal scroll; blank lines as single space
+      line
+        .padEnd(previewHOffset + width, ' ')
+        .slice(previewHOffset, previewHOffset + width) || ' '
+    );
+    const lines = fragLines.map((text, i) =>
       React.createElement(
         Text,
         { key: `md-${i}`, wrap: 'truncate' },
-        line === '' ? ' ' : line
+        text
       )
     );
     // pad to fill content area
@@ -72,25 +78,29 @@ function PreviewPanel({ previewContent, previewTitle, listHeight, previewOffset,
     supportsLanguage = () => false;
   }
   const shouldHighlight = highlight && ext && supportsLanguage(ext);
-  const processed = shouldHighlight
-    ? linesRaw.map((l) => {
-        try { return highlight(l, { language: ext, ignoreIllegals: true }); }
-        catch { return l; }
-      })
-    : linesRaw;
   const contentHeight2 = Math.max(0, listHeight - 2);
-  const slice2 = processed.slice(previewOffset, previewOffset + contentHeight2);
-  const lines2 = [];
-  slice2.forEach((lineRaw, i) => {
-    const display = lineRaw === '' ? ' ' : lineRaw;
-    lines2.push(
-      React.createElement(
-        Text,
-        { key: `line-${i}`, wrap: 'truncate' },
-        display
-      )
+  // Vertical slice
+  const vert = linesRaw.slice(previewOffset, previewOffset + contentHeight2);
+  // Horizontal slice on raw lines
+  const rawSlice = vert.map((l) =>
+    l.padEnd(previewHOffset + width, ' ').slice(previewHOffset, previewHOffset + width)
+  );
+  // Apply syntax highlighting per visible fragment if supported
+  const lines2 = rawSlice.map((frag, i) => {
+    const text = frag === '' ? ' ' : frag;
+    const content = shouldHighlight
+      ? (() => {
+          try { return highlight(text, { language: ext, ignoreIllegals: true }); }
+          catch { return text; }
+        })()
+      : text;
+    return React.createElement(
+      Text,
+      { key: `line-${i}`, wrap: 'truncate' },
+      content
     );
   });
+  // Pad to fill content area if needed
   const pad2 = Math.max(0, contentHeight2 - lines2.length);
   for (let i = 0; i < pad2; i++) {
     lines2.push(

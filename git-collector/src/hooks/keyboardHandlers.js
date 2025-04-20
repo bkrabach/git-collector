@@ -75,17 +75,54 @@ function handleTreeNav(params, input, key) {
 }
 
 function handlePreviewNav(params, input, key) {
-  const { previewContent, previewOffset, setPreviewOffset, contentHeight } = params;
+  const {
+    previewContent,
+    previewOffset,
+    setPreviewOffset,
+    contentHeight,
+    width,
+    setPreviewHOffset
+  } = params;
   const lines = previewContent.split(/\r?\n/);
-  const maxOff = Math.max(0, lines.length - contentHeight);
+  // Compute maximum horizontal offset based on longest line
+  const maxLineLen = lines.reduce((max, l) => Math.max(max, l.length), 0);
+  const maxHOffset = Math.max(0, maxLineLen - (typeof width === 'number' ? width : 0));
+  // Home/End keys (with fallback raw sequences)
+  if (typeof setPreviewHOffset === 'function' && (key.home || input === '\x1b[H' || input === '\x1b[1~')) {
+    setPreviewHOffset(() => 0);
+    return;
+  }
+  if (typeof setPreviewHOffset === 'function' && (key.end || input === '\x1b[F' || input === '\x1b[4~')) {
+    setPreviewHOffset(() => maxHOffset);
+    return;
+  }
+  // Horizontal scroll
+  if (key.leftArrow && typeof setPreviewHOffset === 'function') {
+    setPreviewHOffset((h) => Math.max(0, h - 1));
+    return;
+  }
+  if (key.rightArrow && typeof setPreviewHOffset === 'function') {
+    setPreviewHOffset((h) => Math.min(maxHOffset, h + 1));
+    return;
+  }
+  // Vertical scroll
   if (key.upArrow) {
     setPreviewOffset((o) => Math.max(0, o - 1));
-  } else if (key.downArrow) {
+    return;
+  }
+  if (key.downArrow) {
+    const maxOff = Math.max(0, lines.length - contentHeight);
     setPreviewOffset((o) => Math.min(maxOff, o + 1));
-  } else if (key.pageUp) {
+    return;
+  }
+  if (key.pageUp) {
     setPreviewOffset((o) => Math.max(0, o - contentHeight));
-  } else if (key.pageDown) {
+    return;
+  }
+  if (key.pageDown) {
+    const maxOff = Math.max(0, lines.length - contentHeight);
     setPreviewOffset((o) => Math.min(maxOff, o + contentHeight));
+    return;
   }
 }
 

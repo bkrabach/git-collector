@@ -61,3 +61,46 @@ describe('handlePreviewNav', () => {
     expect(offset).toBe(1);
   });
 });
+
+describe('handlePreviewNav horizontal scroll', () => {
+  const content = ['abc', 'defghij', 'klmno'].join('\n');
+  let previewHOffset;
+  let setPreviewHOffset;
+  const params = () => ({
+    previewContent: content,
+    previewOffset: 0,
+    setPreviewOffset: () => {},
+    contentHeight: 1,
+    previewHOffset,
+    setPreviewHOffset,
+    width: 3
+  });
+  beforeEach(() => {
+    previewHOffset = 2;
+    setPreviewHOffset = (fn) => { previewHOffset = fn(previewHOffset); };
+  });
+  test('leftArrow decreases horizontal offset', () => {
+    handlePreviewNav(params(), '', { leftArrow: true });
+    expect(previewHOffset).toBe(1);
+  });
+  test('rightArrow increases horizontal offset up to max', () => {
+    previewHOffset = 0;
+    handlePreviewNav(params(), '', { rightArrow: true });
+    expect(previewHOffset).toBe(1);
+    // max offset = longest line (7) - width (3) = 4
+    previewHOffset = 4;
+    handlePreviewNav(params(), '', { rightArrow: true });
+    expect(previewHOffset).toBe(4);
+  });
+  test('home sets horizontal offset to 0', () => {
+    previewHOffset = 3;
+    handlePreviewNav(params(), '', { home: true });
+    expect(previewHOffset).toBe(0);
+  });
+  test('end sets horizontal offset to max', () => {
+    previewHOffset = 0;
+    handlePreviewNav(params(), '', { end: true });
+    // max offset = 7 - 3 = 4
+    expect(previewHOffset).toBe(4);
+  });
+});

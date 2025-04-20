@@ -59,6 +59,13 @@ const App = ({ url, initialSelections = [], destPath }) => {
     writeSelection(exit);
   };
   const { previewContent, previewTitle, previewOffset, setPreviewOffset, previewFile } = usePreview(url);
+  const [previewHOffset, setPreviewHOffset] = React.useState(0);
+  // Wrap previewFile to reset both vertical and horizontal scrolls when loading new file
+  const previewFileWrapped = (node) => {
+    setPreviewOffset(0);
+    setPreviewHOffset(0);
+    previewFile(node);
+  };
   const [offset, setOffset] = React.useState(0);
   const [cursor, setCursor] = React.useState(0);
   const [focus, setFocus] = React.useState('tree');
@@ -123,6 +130,23 @@ const App = ({ url, initialSelections = [], destPath }) => {
     return `${header}${shown.length > 0 ? ' ' + shown.join(' | ') : ''}`;
   }, [totalCols]);
 
+  // Compute left panel width to determine preview panel width
+  const leftLines = flattened.map(({ node, depth }) => {
+    let mark;
+    if (node.type === 'tree') {
+      const desc = getDescendantPaths(node);
+      const selCount = desc.filter((p) => selected.has(p)).length;
+      mark = selCount === 0 ? '[ ]' : selCount === desc.length ? '[x]' : '[-]';
+    } else {
+      mark = selected.has(node.path) ? '[x]' : '[ ]';
+    }
+    const indent = ' '.repeat(Math.max(0, depth - depthOffset) * 2);
+    const icon = node.type === 'tree' ? (node.isExpanded ? '▼ ' : '▶ ') : '  ';
+    return `${mark} ${indent}${icon}${node.name}`;
+  });
+  const rawLeft = Math.min(totalCols - 1, leftLines.reduce((m, l) => Math.max(m, l.length), 0));
+  const leftWidth = Math.max(0, rawLeft);
+  const panelWidth = Math.max(0, totalCols - leftWidth - 3);
   useKeyboardNavigation({
     // Disable keyboard nav while help screen is displayed
     enabled: !showHelp,
@@ -141,10 +165,13 @@ const App = ({ url, initialSelections = [], destPath }) => {
     onHelp: () => setShowHelp(true),
     exit,
     toggleSelection,
-    previewFile,
+    previewFile: previewFileWrapped,
     previewContent,
     previewOffset,
-    setPreviewOffset
+    setPreviewOffset,
+    previewHOffset,
+    setPreviewHOffset,
+    width: panelWidth
   });
 
   if (error) {
@@ -158,23 +185,6 @@ const App = ({ url, initialSelections = [], destPath }) => {
     const HelpScreen = require('./components/HelpScreen');
     return React.createElement(HelpScreen, { onClose: () => setShowHelp(false) });
   }
-
-  const leftLines = flattened.map(({ node, depth }) => {
-    let mark;
-    if (node.type === 'tree') {
-      const desc = getDescendantPaths(node);
-      const selCount = desc.filter((p) => selected.has(p)).length;
-      mark = selCount === 0 ? '[ ]' : selCount === desc.length ? '[x]' : '[-]';
-    } else {
-      mark = selected.has(node.path) ? '[x]' : '[ ]';
-    }
-    const indent = ' '.repeat(Math.max(0, depth - depthOffset) * 2);
-    const icon = node.type === 'tree' ? (node.isExpanded ? '▼ ' : '▶ ') : '  ';
-    return `${mark} ${indent}${icon}${node.name}`;
-  });
-  // Compute left panel width but clamp to non-negative value
-  const rawLeft = Math.min(totalCols - 1, leftLines.reduce((m, l) => Math.max(m, l.length), 0));
-  const leftWidth = Math.max(0, rawLeft);
 
   return React.createElement(
     Box,
@@ -204,6 +214,7 @@ const App = ({ url, initialSelections = [], destPath }) => {
         previewTitle,
         listHeight,
         previewOffset,
+        previewHOffset,
         focus,
         // Ensure non-negative width to avoid repeat(-n) errors
         width: Math.max(0, totalCols - leftWidth - 3)
