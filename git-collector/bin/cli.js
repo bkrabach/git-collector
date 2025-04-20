@@ -36,7 +36,14 @@ async function updateDataFile(url, paths, destPath) {
     }
   }
   if (currPath) oldContents[currPath] = buffer.join('\n');
-  // Fetch new contents
+  // Start spinner
+  const frames = ['-', '\\', '|', '/'];
+  let fi = 0;
+  const spinner = setInterval(() => {
+    process.stdout.write(`\r${frames[fi]} Updating selections...`);
+    fi = (fi + 1) % frames.length;
+  }, 80);
+  // Fetch new contents and compare
   const newContents = {};
   let updated = 0;
   let removed = 0;
@@ -44,11 +51,17 @@ async function updateDataFile(url, paths, destPath) {
     try {
       const content = await fetchContent(url, p);
       newContents[p] = content;
-      if ((oldContents[p] || '') !== content) updated++;
+      // Normalize old and new for comparison
+      const oldC = (oldContents[p] || '').trim().replace(/\r\n/g, '\n');
+      const newC = content.trim().replace(/\r\n/g, '\n');
+      if (oldC !== newC) updated++;
     } catch {
       removed++;
     }
   }
+  // Stop spinner
+  clearInterval(spinner);
+  process.stdout.write('\r');
   const kept = Object.keys(newContents);
   // Write updated data file
   const out = [];
