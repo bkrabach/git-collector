@@ -22,6 +22,26 @@ Git Collector is a command-line tool that lets you interactively browse a GitHub
 
 ## Installation
 
+### From npm registry
+
+Install the published package globally with pnpm:
+
+```bash
+pnpm add -g git-collector
+# or with npm:
+npm install --global git-collector
+# or with Yarn:
+yarn global add git-collector
+```
+
+After installation, you can invoke:
+
+```bash
+git-collector <dest.md>
+```
+
+### From source
+
 First, clone this repository and install dependencies:
 
 ```bash
