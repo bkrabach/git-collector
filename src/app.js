@@ -23,18 +23,28 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const { tree, setTree, flattened, error, parsed } = useRepoTree(url, initialSelections);
   // State for showing help modal
   const [showHelp, setShowHelp] = React.useState(false);
+  // Track unsaved changes (dirty flag)
+  const [dirty, setDirty] = React.useState(false);
+  // State for quit confirmation modal
+  const [quitConfirmVisible, setQuitConfirmVisible] = React.useState(false);
   // UI state
   const [isSaving, setIsSaving] = React.useState(false);
   // Message for status indicator
   const [savingMsg, setSavingMsg] = React.useState('');
   // Initialize selection state
   const [selected, setSelected] = React.useState(() => new Set(initialSelections));
-  const toggleSelection = (node) => setSelected((prev) => toggleSelectionSet(prev, node, getDescendantPaths));
+  // Toggle file/dir selection and mark as dirty
+  const toggleSelection = (node) => {
+    setSelected((prev) => toggleSelectionSet(prev, node, getDescendantPaths));
+    setDirty(true);
+  };
   const { writeSelections } = require('./utils/writeSelections');
   // Core write logic: serialize and write selected files, then call exitFn
+  // Core write logic: serialize and write selected files, reset dirty, then call exitFn
   const writeSelection = (exitFn) => {
     (async () => {
       await writeSelections({ url, destPath, selected, flattened });
+      setDirty(false);
       exitFn();
     })();
   };
@@ -167,6 +177,16 @@ const App = ({ url, initialSelections = [], destPath }) => {
     // Always append help if space
     const helpSeg = helpItem.length + (shown.length > 0 ? 3 : 0);
     if (avail >= helpSeg) shown.push(helpItem);
+    // Ensure quit command is always visible
+    const hasQuit = shown.some((i) => i.startsWith('<q>'));
+    if (!hasQuit) {
+      // Replace last item with quit, or add if empty
+      if (shown.length > 0) {
+        shown[shown.length - 1] = '<q> quit';
+      } else {
+        shown.push('<q> quit');
+      }
+    }
     return shown;
   }, [focus, previewContent, totalCols]);
 
@@ -188,14 +208,21 @@ const App = ({ url, initialSelections = [], destPath }) => {
   const leftWidth = Math.max(0, rawLeft);
   const panelWidth = Math.max(0, totalCols - leftWidth - 3);
   useKeyboardNavigation({
-    // Disable keyboard nav while help screen is displayed
-    enabled: !showHelp,
+    // Disable keyboard nav while help modal or quit confirmation is displayed
+    enabled: !showHelp && !quitConfirmVisible,
     tree,
     focus,
     setFocus,
     onSave,
     onSaveQuit,
     onHelp: () => setShowHelp(true),
+    onQuit: () => {
+      if (dirty) {
+        setQuitConfirmVisible(true);
+      } else {
+        exit();
+      }
+    },
     exit,
     previewContent
   });
@@ -205,6 +232,15 @@ const App = ({ url, initialSelections = [], destPath }) => {
   }
   if (!tree) {
     return React.createElement(Text, null, 'Loading repository tree...');
+  }
+  // Show quit confirmation modal if user requested quit with unsaved changes
+  if (quitConfirmVisible) {
+    const QuitConfirmModal = require('./components/QuitConfirmModal');
+    return React.createElement(QuitConfirmModal, {
+      onCancel: () => setQuitConfirmVisible(false),
+      onQuitWithoutSave: () => exit(),
+      onSaveAndQuit: onSaveQuit
+    });
   }
   // Show full-screen help modal if requested
   if (showHelp) {

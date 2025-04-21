@@ -13,6 +13,7 @@ function useKeyboardNavigation(params) {
     onSave,
     onSaveQuit,
     onHelp,
+    onQuit,
     exit,
     previewContent
   } = params;
@@ -31,7 +32,12 @@ function useKeyboardNavigation(params) {
       return;
       }
       if (input === 'q') {
-      exit();
+      // Quit request: may be intercepted (e.g., unsaved changes)
+      if (typeof onQuit === 'function') {
+        onQuit();
+      } else {
+        exit();
+      }
       return;
       }
       if (input === '?') {
