@@ -1,6 +1,34 @@
 {
   "name": "git-collector",
   "version": "0.1.0",
+  "description": "Interactively browse a GitHub repository, select files or directories, and collect their contents into a Markdown data file",
+  "keywords": [
+    "cli",
+    "github",
+    "repository",
+    "collector",
+    "markdown",
+    "ink",
+    "interactive"
+  ],
+  "author": "Brian Krabach <brian.krabach@paradox-customs.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bkrabach/git-collector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bkrabach/git-collector/issues"
+  },
+  "homepage": "https://github.com/bkrabach/git-collector#readme",
+  "engines": {
+    "node": ">=14"
+  },
+  "preferGlobal": true,
+  "files": [
+    "bin/",
+    "src/"
+  ],
   "bin": {
     "git-collector": "bin/cli.js"
   },

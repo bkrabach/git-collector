@@ -1,5 +1,24 @@
+# Node.js dependencies
 node_modules/
-coverage/
-*.log
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Logs
 npm-debug.log*
-jest-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Coverage directory
+coverage/
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+
+# Log files
+*.log
