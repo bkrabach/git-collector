@@ -1,6 +1,6 @@
 {
   "name": "git-collector",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Interactively browse a GitHub repository, select files or directories, and collect their contents into a Markdown data file",
   "keywords": [
     "cli",
