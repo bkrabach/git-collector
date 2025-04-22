@@ -90,11 +90,10 @@ git-collector [--update] [--force] <destination>
 ```
 
 - `<destination>`: Path to the Markdown data file to create or update. In update mode, this may instead be a directory containing Git Collector data files.
-- `--update`: If the destination exists:
+- `--update`: Update files and then exit (no interactive UX), if the destination exists:
   - When it's a data file, refresh that single file with the latest selections.
   - When it's a directory, scan that directory (no subdirectories) for files marked as Git Collector data files (identified by a first line of `# Git Collector Data`) and update each in turn.
 - `--force`, `-f`: When used with `--update`, always rewrite the data file(s), updating timestamps even if there are no content changes.
-- Flags may be specified before or after the destination path; for example, both `git-collector --update --force data.md` and `git-collector data.md --force --update` work the same.
 
 ### Create a New Data File
 
@@ -123,6 +122,17 @@ git-collector --update data.md
 
 - Reloads the URL and file list from `data.md` and fetches current contents, reporting how many files were updated or removed, without invoking the interactive UI.
 - This is useful for integrating with other tools or scripts, or just as a quick way to refresh the data file.
+- The `--force` option can be used to rewrite the data file even if there are no content changes.
+
+### Update a Directory of Data Files
+
+```bash
+git-collector --update data/
+```
+
+- Scans the specified directory for files marked as Git Collector data files (identified by a first line of `# Git Collector Data`) and updates each in turn.
+- This is useful for batch processing multiple data files at once.
+- The `--force` option can be used to rewrite the data files even if there are no content changes.
 
 ### Run Without Global Install
 
