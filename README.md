@@ -86,11 +86,15 @@ git-collector <dest.md>
 ## Usage
 
 ```bash
-git-collector [--update] <dest.md>
+git-collector [--update] [--force] <destination>
 ```
 
-- `<dest.md>`: Path to the Markdown data file to create or update.
-- `--update`: If the file exists, fetch the latest contents for previously selected files and update the data file.
+- `<destination>`: Path to the Markdown data file to create or update. In update mode, this may instead be a directory containing Git Collector data files.
+- `--update`: If the destination exists:
+  - When it's a data file, refresh that single file with the latest selections.
+  - When it's a directory, scan that directory (no subdirectories) for files marked as Git Collector data files (identified by a first line of `# Git Collector Data`) and update each in turn.
+- `--force`, `-f`: When used with `--update`, always rewrite the data file(s), updating timestamps even if there are no content changes.
+- Flags may be specified before or after the destination path; for example, both `git-collector --update --force data.md` and `git-collector data.md --force --update` work the same.
 
 ### Create a New Data File
 

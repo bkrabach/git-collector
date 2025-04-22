@@ -4,21 +4,39 @@ const React = require('react');
 const { render } = require('ink');
 const App = require('../src/app');
 
-// Parse command-line args: support optional --update
+// Parse command-line args: support --update and --force
 const rawArgs = process.argv.slice(2);
-const updateMode = rawArgs.includes('--update');
-const destPathArg = rawArgs.find((a) => a !== '--update');
-if (!destPathArg) {
-  console.error('Usage: git-collector [--update] <destination-markdown-file>');
+let updateMode = false;
+let forceMode = false;
+const paths = [];
+for (const arg of rawArgs) {
+  if (arg === '--update') {
+    updateMode = true;
+  } else if (arg === '--force' || arg === '-f') {
+    forceMode = true;
+  } else {
+    paths.push(arg);
+  }
+}
+if (paths.length !== 1) {
+  console.error('Usage: git-collector [--update] [--force] <destination>');
   process.exit(1);
 }
+const destPathArg = paths[0];
 const fs = require('fs');
 const path = require('path');
 const fullDestPath = path.resolve(process.cwd(), destPathArg);
 // Utils for update mode
 const { fetchContent } = require('../src/utils/githubClient');
 
-async function updateDataFile(url, paths, destPath) {
+/**
+ * Fetch and rewrite a Git Collector data file, unless no changes (unless forced).
+ * @param {string} url GitHub repo URL
+ * @param {string[]} paths List of file paths to fetch
+ * @param {string} destPath Local data file path
+ * @param {boolean} [force=false] If true, always rewrite the file (update timestamp)
+ */
+async function updateDataFile(url, paths, destPath, force = false) {
   // Read existing data file to extract old contents
   const data = fs.readFileSync(destPath, 'utf8');
   const lines = data.split(/\r?\n/);
@@ -63,6 +81,11 @@ async function updateDataFile(url, paths, destPath) {
   clearInterval(spinner);
   process.stdout.write('\r');
   const kept = Object.keys(newContents);
+  // If nothing changed and not forced, skip rewriting
+  if (!force && updated === 0 && removed === 0) {
+    console.log(`No changes in ${destPath}, skipping update.`);
+    return;
+  }
   // Write updated data file
   const out = [];
   out.push('# Git Collector Data');
@@ -83,7 +106,41 @@ async function updateDataFile(url, paths, destPath) {
 
 let repoUrl;
 let initialSelections = [];
-  if (fs.existsSync(fullDestPath)) {
+// If in update mode and destination is a directory, scan for Git Collector data files
+if (updateMode && fs.existsSync(fullDestPath) && fs.statSync(fullDestPath).isDirectory()) {
+  (async () => {
+    const dir = fullDestPath;
+    for (const name of fs.readdirSync(dir)) {
+      const filePath = path.join(dir, name);
+      let stat;
+      try {
+        stat = fs.statSync(filePath);
+      } catch {
+        continue;
+      }
+      if (!stat.isFile()) continue;
+      let content;
+      try {
+        content = fs.readFileSync(filePath, 'utf8');
+      } catch {
+        continue;
+      }
+      const firstLine = content.split(/\r?\n/)[0];
+      if (firstLine.trim() !== '# Git Collector Data') continue;
+      const urlMatch = content.match(/^URL:\s*(.*)$/m);
+      if (!urlMatch) {
+        console.error(`Skipping ${filePath}: missing URL`);
+        continue;
+      }
+      const url = urlMatch[1].trim();
+      const fileMatches = [...content.matchAll(/^=== File:\s*(.*)\s*===$/gm)];
+      const paths = fileMatches.map((m) => m[1].trim());
+      console.log(`Updating data file: ${filePath}`);
+      await updateDataFile(url, paths, filePath, forceMode);
+    }
+    process.exit(0);
+  })();
+} else if (fs.existsSync(fullDestPath)) {
   // Load existing data file: parse URL and selected files
   const data = fs.readFileSync(fullDestPath, 'utf8');
   const urlMatch = data.match(/^URL:\s*(.*)$/m);
@@ -96,7 +153,8 @@ let initialSelections = [];
   const fileMatches = [...data.matchAll(/^=== File:\s*(.*)\s*===$/gm)];
   initialSelections = fileMatches.map((m) => m[1].trim());
     if (updateMode) {
-      updateDataFile(repoUrl, initialSelections, fullDestPath);
+      // Update single data file
+      updateDataFile(repoUrl, initialSelections, fullDestPath, forceMode);
     } else {
       startApp(repoUrl, initialSelections, fullDestPath);
     }
