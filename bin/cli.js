@@ -28,6 +28,7 @@ const path = require('path');
 const fullDestPath = path.resolve(process.cwd(), destPathArg);
 // Utils for update mode
 const { fetchContent } = require('../src/utils/githubClient');
+const { parseGitHubUrl } = require('../src/utils/urlUtils');
 
 /**
  * Fetch and rewrite a Git Collector data file, unless no changes (unless forced).
@@ -86,12 +87,17 @@ async function updateDataFile(url, paths, destPath, force = false) {
     console.log(`No changes in ${destPath}, skipping update.`);
     return;
   }
-  // Write updated data file
+  // Write updated data file with new header format
   const out = [];
-  out.push('# Git Collector Data');
-  out.push(`URL: ${url}`);
-  out.push(`Date: ${new Date().toLocaleString()}`);
-  out.push(`Files: ${kept.length}`);
+  const { owner, repo, initialPathParts } = parseGitHubUrl(url);
+  const title = `${owner}/${repo}${initialPathParts.length ? '/' + initialPathParts.join('/') : ''}`;
+  out.push(`# ${title}`);
+  out.push('');
+  out.push('[git-collector-data]');
+  out.push('');
+  out.push(`**URL:** ${url}  `);
+  out.push(`**Date:** ${new Date().toLocaleString()}  `);
+  out.push(`**Files:** ${kept.length}  `);
   out.push('');
   for (const p of kept) {
     out.push(`=== File: ${p} ===`);
@@ -125,9 +131,10 @@ if (updateMode && fs.existsSync(fullDestPath) && fs.statSync(fullDestPath).isDir
       } catch {
         continue;
       }
-      const firstLine = content.split(/\r?\n/)[0];
-      if (firstLine.trim() !== '# Git Collector Data') continue;
-      const urlMatch = content.match(/^URL:\s*(.*)$/m);
+      // Only process files marked as Git Collector data
+      if (!content.match(/^\[git-collector-data\]$/m)) continue;
+      // Extract URL from metadata
+      const urlMatch = content.match(/^\*\*URL:\*\*\s*(.*)$/m);
       if (!urlMatch) {
         console.error(`Skipping ${filePath}: missing URL`);
         continue;
@@ -143,7 +150,7 @@ if (updateMode && fs.existsSync(fullDestPath) && fs.statSync(fullDestPath).isDir
 } else if (fs.existsSync(fullDestPath)) {
   // Load existing data file: parse URL and selected files
   const data = fs.readFileSync(fullDestPath, 'utf8');
-  const urlMatch = data.match(/^URL:\s*(.*)$/m);
+  const urlMatch = data.match(/^\*\*URL:\*\*\s*(.*)$/m);
   if (!urlMatch) {
     console.error('Invalid data file: missing URL');
     process.exit(1);

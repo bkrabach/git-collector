@@ -43,7 +43,7 @@ const App = ({ url, initialSelections = [], destPath }) => {
   // Core write logic: serialize and write selected files, reset dirty, then call exitFn
   const writeSelection = (exitFn) => {
     (async () => {
-      await writeSelections({ url, destPath, selected, flattened });
+      await writeSelections({ url, destPath, selected, flattened, tree });
       setDirty(false);
       exitFn();
     })();
