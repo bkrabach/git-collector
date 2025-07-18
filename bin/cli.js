@@ -4,7 +4,43 @@ const React = require('react');
 const { render } = require('ink');
 const App = require('../src/app');
 
-// Parse command-line args: support --update and --force
+function showHelp() {
+  console.log(`
+git-collector - Interactive GitHub repository file collector
+
+USAGE:
+  git-collector [OPTIONS] <destination>
+
+ARGUMENTS:
+  <destination>    Path to Markdown data file to create/update
+                   Or directory path when using --update
+
+OPTIONS:
+  --update         Update existing data file(s) without interactive UI
+  --force, -f      Force rewrite even if no changes (with --update)
+  --help, -h       Show this help message
+
+EXAMPLES:
+  git-collector data.md              # Create new data file (prompts for GitHub URL)
+  git-collector --update data.md     # Update existing file
+  git-collector --update data/       # Update all files in directory
+  git-collector --force --update .   # Force update all files
+
+WORKFLOW:
+  1. For new files: You'll be prompted to enter a GitHub repository URL
+  2. Interactive UI opens to browse and select files
+  3. Selected files are saved to the destination Markdown file
+
+INTERACTIVE CONTROLS:
+  ↑/↓       Navigate tree          <space>   Select/deselect
+  ←/→       Collapse/expand        <enter>   Preview file
+  PgUp/PgDn Page scroll            <tab>     Switch focus
+  <s>       Save selections        <x>       Save and quit
+  <q>       Quit                   <?>       Help
+`);
+}
+
+// Parse command-line args: support --update, --force, and --help
 const rawArgs = process.argv.slice(2);
 let updateMode = false;
 let forceMode = false;
@@ -14,6 +50,9 @@ for (const arg of rawArgs) {
     updateMode = true;
   } else if (arg === '--force' || arg === '-f') {
     forceMode = true;
+  } else if (arg === '--help' || arg === '-h') {
+    showHelp();
+    process.exit(0);
   } else {
     paths.push(arg);
   }
