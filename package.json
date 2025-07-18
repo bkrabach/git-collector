@@ -27,7 +27,9 @@
   "preferGlobal": true,
   "files": [
     "bin/",
-    "src/"
+    "src/",
+    "README.md",
+    "LICENSE"
   ],
   "bin": {
     "git-collector": "bin/cli.js"
